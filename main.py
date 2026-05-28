@@ -50,16 +50,16 @@ def get_new_pairs_on_base():
             liq = float(attributes.get('reserve_in_usd', 0) or 0)
             created_str = attributes.get('pool_created_at')
             
-            if not created_str:
-                age_min = 9999
-            else:
+            # محاسبه امن سن توکن
+            if created_str:
                 try:
-                    # درست کردن فرمت زمان
                     created_str = created_str.replace('Z', '+00:00')
                     created_time = datetime.fromisoformat(created_str)
-                    age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
+                    age_min = int((datetime.utcnow() - created_time.replace(tzinfo=None)).total_seconds() / 60)
                 except:
                     age_min = 9999
+            else:
+                age_min = 9999
             
             token_info = {
                 'name': name,
@@ -102,4 +102,34 @@ def check_telegram_commands():
         try:
             url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=10"
             resp = requests.get(url, timeout=15)
-            updates =
+            updates = resp.json().get('result', [])
+            
+            for update in updates:
+                offset = update['update_id'] + 1
+                if 'message' not in update:
+                    continue
+                    
+                chat_id = update['message']['chat']['id']
+                text = update['message'].get('text', '').strip().lower()
+                
+                if text in ['/top', '/best', 'top', 'best']:
+                    if not top_tokens_24h:
+                        send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده...")
+                        continue
+                    
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته</b>\n\n"
+                    for i, t in enumerate(top_tokens_24h[:8], 1):
+                        msg += f"{i}. <b>{t['name']}</b>\n   Vol: ${t['vol']:,.0f} | Liq: ${t['liq']:,.0f} | Age: {t['age']} min\n   <a href='{t['link']}'>Link</a>\n\n"
+                    msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
+                    send_telegram_message(chat_id, msg)
+        except:
+            time.sleep(5)
+
+if __name__ == "__main__":
+    print("🚀 Base Meme Radar Bot - GeckoTerminal + /top")
+    
+    threading.Thread(target=check_telegram_commands, daemon=True).start()
+    
+    while True:
+        get_new_pairs_on_base()
+        time.sleep(CHECK_INTERVAL)
