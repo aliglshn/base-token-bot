@@ -1,123 +1,130 @@
 import requests
 import time
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+import threading
 
 # ====================== CONFIG ======================
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')  # چت آیدی اصلی شما
 
 BASED_X = "https://x.com/basedbot"
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 # ===================================================
 
-CHECK_INTERVAL = 60
 seen_tokens = set()
+top_tokens_24h = []  # ذخیره توکن‌های برتر ۲۴ ساعت
 
-def send_telegram_message(text):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        return False
+def send_telegram_message(chat_id, text):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     try:
         requests.post(url, json=payload, timeout=10)
-        print("✅ Telegram Alert Sent!")
         return True
     except:
         return False
 
 def get_new_pairs_on_base():
+    global top_tokens_24h
     url = "https://api.dexscreener.com/latest/dex/search?q=base"
     
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
-        
-        print(f"\n[{datetime.now()}] 🔍 Scanner + Launchpads Running...")
-        
         pairs = data.get('pairs', [])
-        found_new = False
         
-        for pair in pairs[:250]:
+        current_time = datetime.now()
+        new_top = []
+        
+        for pair in pairs[:300]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
-            contract_address = base_token.get('address', 'N/A')
-            price = pair.get('priceUsd', 'N/A')
-            vol_24h = pair.get('volume', {}).get('h24', 0)
+            contract = base_token.get('address', 'N/A')
+            vol = pair.get('volume', {}).get('h24', 0)
             liq = pair.get('liquidity', {}).get('usd', 0)
             created = pair.get('pairCreatedAt')
             pair_address = pair.get('pairAddress')
-            dex_id = pair.get('dexId', '')
             
-            if not created or not pair_address:
+            if not pair_address or vol < 10000:
                 continue
                 
-            token_key = pair_address
-            if token_key in seen_tokens:
-                continue
-                
-            age_min = int((time.time() * 1000 - created) / 60000)
+            age_min = int((time.time() * 1000 - created) / 60000) if created else 9999
             
-            # تشخیص لانچر
-            launcher = ""
-            if "clanker" in name.lower() or "clanker" in symbol.lower():
-                launcher = "🟢 Clanker"
-            elif "virtual" in name.lower() or "virtuals" in name.lower():
-                launcher = "🔵 Virtuals"
-            elif "banker" in name.lower():
-                launcher = "🔴 Banker"
-            else:
-                launcher = "⚪ Normal"
+            token_info = {
+                'name': name,
+                'symbol': symbol,
+                'contract': contract,
+                'vol': vol,
+                'liq': liq,
+                'age': age_min,
+                'link': f"https://dexscreener.com/base/{pair_address}"
+            }
             
-            is_new = age_min <= 90 and liq >= 3000
-            is_high_volume = vol_24h >= 40000 and age_min <= 300
+            new_top.append(token_info)
             
-            if not (is_new or is_high_volume):
-                continue
-            
-            seen_tokens.add(token_key)
-            found_new = True
-            dexscreener_link = f"https://dexscreener.com/base/{pair_address}"
-            
-            if is_new:
-                status = "🚀 NEW LAUNCH"
-            else:
-                status = "🔥 HIGH VOLUME"
-            
-            print(f"\n{status} | {launcher} DETECTED!")
-            print(f"   🪙 {name} (${symbol})")
-            print(f"   📍 Contract: {contract_address}")
-            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
-            print(f"   🔗 {dexscreener_link}")
-            
-            message = f"""<b>{status} {launcher} on Base!</b>
+            # ارسال آلرت معمولی برای توکن‌های خوب
+            if (age_min <= 90 and liq >= 5000) or vol >= 80000:
+                if pair_address not in seen_tokens:
+                    seen_tokens.add(pair_address)
+                    status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
+                    message = f"""<b>{status} on Base!</b>
 
-🪙 <b>{name}</b> (${symbol})
-📍 <code>{contract_address}</code>
-💰 Price: ${price}
-📊 Liq: ${liq:,} | 24h Vol: ${vol_24h:,}
-⏱️ {age_min} minutes old
+🪙 {name} (${symbol})
+📍 <code>{contract}</code>
+📊 Vol: ${vol:,} | Liq: ${liq:,}
+⏱️ {age_min} min
 
-🔗 <a href="{dexscreener_link}">DexScreener</a>
+🔗 <a href="{token_info['link']}">DexScreener</a>
 
-<b>💸 Trade Now:</b>
-• <a href="{BASED_TELEGRAM}">Telegram Based Bot</a>
-• <a href="{BASED_X}">X (@basedbot)</a>
-
-#Base #Memecoin #{launcher.replace(' ', '')}"""
-
-            send_telegram_message(message)
-            print("-" * 80)
+💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
+                    send_telegram_message(TELEGRAM_CHAT_ID, message)
         
-        if not found_new:
-            print("⏳ No interesting tokens right now...")
-            
+        # مرتب‌سازی ۱۰ توکن برتر ۲۴ ساعت
+        top_tokens_24h = sorted(new_top, key=lambda x: x['vol'], reverse=True)[:10]
+        
     except Exception as e:
         print(f"Error: {e}")
 
+# ==================== هندل دستورات تلگرام ====================
+def handle_telegram_commands():
+    offset = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=30"
+            resp = requests.get(url, timeout=40)
+            updates = resp.json().get('result', [])
+            
+            for update in updates:
+                offset = update['update_id'] + 1
+                if 'message' not in update:
+                    continue
+                    
+                chat_id = update['message']['chat']['id']
+                text = update['message'].get('text', '').strip().lower()
+                
+                if text in ['/top', '/best', 'top', 'best']:
+                    if not top_tokens_24h:
+                        send_telegram_message(chat_id, "⏳ هنوز توکنی ثبت نشده. کمی صبر کنید...")
+                        continue
+                    
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته (بر اساس Volume)</b>\n\n"
+                    for i, t in enumerate(top_tokens_24h[:8], 1):
+                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n"
+                        msg += f"   Vol: ${t['vol']:,} | Liq: ${t['liq']:,}\n"
+                        msg += f"   <a href='{t['link']}'>DexScreener</a>\n\n"
+                    
+                    msg += f"\n💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
+                    send_telegram_message(chat_id, msg)
+                    
+        except:
+            time.sleep(5)
+
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - Smart + Launchpad Detector")
+    print("🚀 Base Meme Radar Bot Started with /top Command")
+    
+    # شروع Thread برای دریافت دستورات تلگرام
+    threading.Thread(target=handle_telegram_commands, daemon=True).start()
     
     while True:
         get_new_pairs_on_base()
