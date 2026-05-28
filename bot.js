@@ -3,34 +3,40 @@ const cron = require('node-cron');
 
 console.log("Bot is starting...");
 
-cron.schedule('*/3 * * * *', async () => {   // هر ۳ دقیقه یکبار (خیلی مهم!)
+cron.schedule('*/5 * * * *', async () => {   // هر ۵ دقیقه یکبار
   console.log("Checking for new tokens on Base...");
 
   try {
-    const response = await axios.get('https://api.dexscreener.com/latest/dex/pairs/base', {
-      timeout: 10000
+    // روش درست‌تر و پایدارتر
+    const response = await axios.get('https://api.dexscreener.com/latest/dex/search?q=base', {
+      timeout: 15000
     });
     
     const pairs = response.data.pairs || [];
-    console.log(`Found ${pairs.length} pairs`);
+    console.log(`Found ${pairs.length} pairs on search`);
 
-    // فقط توکن‌های جدید با لیکوئیدیتی خوب
-    const newTokens = pairs.filter(p => 
-      p.liquidity && 
-      p.liquidity.usd > 3000 && 
-      p.pairCreatedAt && 
-      (Date.now() - new Date(p.pairCreatedAt).getTime()) < 15 * 60 * 1000
-    );
+    // فیلتر توکن‌های جدید با لیکوئیدیتی خوب
+    const interesting = pairs.filter(p => {
+      if (!p.liquidity || !p.liquidity.usd) return false;
+      if (p.liquidity.usd < 5000) return false;                    // حداقل لیکوئیدیتی
+      if (!p.pairCreatedAt) return false;
+      
+      const ageMinutes = (Date.now() - new Date(p.pairCreatedAt).getTime()) / (1000 * 60);
+      return ageMinutes < 30;   // فقط توکن‌های کمتر از ۳۰ دقیقه
+    });
 
-    console.log(`Found ${newTokens.length} interesting new tokens`);
+    console.log(`Found ${interesting.length} interesting new tokens`);
+
+    if (interesting.length > 0) {
+      console.log("New token found! Symbol:", interesting[0].baseToken.symbol);
+    }
 
   } catch (error) {
-    if (error.response && error.response.status === 429) {
-      console.log("Rate limit hit. Waiting longer...");
-    } else {
-      console.log("Error:", error.message);
+    console.log("Error:", error.message);
+    if (error.response) {
+      console.log("Status:", error.response.status);
     }
   }
 });
 
-console.log("Bot is running and checking every 3 minutes!");
+console.log("Bot is running and checking every 5 minutes!");
