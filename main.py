@@ -55,6 +55,8 @@ def get_new_pairs_on_base():
                 try:
                     # حذف Z و تبدیل به datetime
                     created_str = created_str.replace('Z', '')
+                    if '.' in created_str:
+                        created_str = created_str.split('.')[0]  # حذف میلی‌ثانیه
                     created_time = datetime.fromisoformat(created_str)
                     age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
                 except:
