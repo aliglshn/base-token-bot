@@ -18,11 +18,7 @@ def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML"
-    }
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
         requests.post(url, json=payload, timeout=10)
         print("✅ Telegram Alert Sent!")
@@ -32,6 +28,7 @@ def send_telegram_message(text):
 
 def get_new_pairs_on_base():
     url = "https://api.dexscreener.com/latest/dex/search?q=base"
+    
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
@@ -41,7 +38,7 @@ def get_new_pairs_on_base():
         pairs = data.get('pairs', [])
         found_new = False
         
-        for pair in pairs[:200]:
+        for pair in pairs[:250]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
@@ -61,8 +58,9 @@ def get_new_pairs_on_base():
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            is_new = age_min <= 60 and liq >= 4000
-            is_high_volume = vol_24h >= 80000 and age_min <= 180
+            # فیلتر بهبود یافته
+            is_new = age_min <= 90 and liq >= 3000
+            is_high_volume = vol_24h >= 50000 and age_min <= 300   # حجم خوب + حداکثر ۵ ساعت
             
             if not (is_new or is_high_volume):
                 continue
@@ -92,8 +90,8 @@ def get_new_pairs_on_base():
 
 🔗 <a href="{dexscreener_link}">DexScreener</a>
 
-<b>💸 Trade Now:</b>
-• <a href="{BASED_TELEGRAM}">Telegram Based Bot</a>
+<b>💸 Trade Now with Based Bot:</b>
+• <a href="{BASED_TELEGRAM}">Telegram Bot</a>
 • <a href="{BASED_X}">X (@basedbot)</a>
 
 #Base #Memecoin"""
@@ -108,7 +106,7 @@ def get_new_pairs_on_base():
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - SMART MODE + Contract + Based Bot Links")
+    print("🚀 Base Meme Radar Bot - SMART MODE (Improved Volume Detection)")
     
     while True:
         get_new_pairs_on_base()
