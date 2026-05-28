@@ -17,16 +17,21 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 CHECK_INTERVAL = 45
 
-MIN_VOLUME = 100000
-MIN_LIQUIDITY = 25000
-MIN_AGE_MINUTES = 5
-MAX_VOL_LIQ_RATIO = 15
+# ================= FILTERS =================
+
+MIN_VOLUME = 50000
+MIN_LIQUIDITY = 10000
+MIN_AGE_MINUTES = 3
+MAX_VOL_LIQ_RATIO = 20
+
+# ===========================================
 
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 
+# BETTER ENDPOINT
 GECKO_API = (
     "https://api.geckoterminal.com/api/v2/"
-    "networks/base/new_pools"
+    "networks/base/trending_pools"
 )
 
 SEEN_FILE = "seen_tokens.json"
@@ -39,7 +44,7 @@ top_tokens_24h = []
 telegram_offset = 0
 
 # =========================================================
-# HTTP SESSION
+# HTTP SESSION + RETRY
 # =========================================================
 
 session = requests.Session()
@@ -66,26 +71,31 @@ def load_seen_tokens():
         return set()
 
     try:
+
         with open(SEEN_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         return set(data)
 
     except Exception as e:
+
         print(f"[LOAD ERROR] {e}")
+
         return set()
 
 
 def save_seen_tokens(tokens):
 
     try:
+
         with open(SEEN_FILE, "w", encoding="utf-8") as f:
             json.dump(list(tokens), f)
 
     except Exception as e:
+
         print(f"[SAVE ERROR] {e}")
 
-
+# Load persistent cache
 seen_tokens = load_seen_tokens()
 
 # =========================================================
@@ -97,7 +107,7 @@ def safe_float(value, default=0):
     try:
         return float(value)
 
-    except Exception:
+    except:
         return default
 
 
@@ -123,6 +133,7 @@ def calculate_age_minutes(created_str):
     except Exception as e:
 
         print(f"[AGE ERROR] {e}")
+
         return 9999
 
 # =========================================================
@@ -160,7 +171,9 @@ def send_telegram_message(chat_id, text):
         result = response.json()
 
         if not result.get("ok"):
+
             print("[TELEGRAM ERROR]", result)
+
             return False
 
         return True
@@ -175,7 +188,7 @@ def send_telegram_message(chat_id, text):
 # SCANNER
 # =========================================================
 
-def get_new_pairs_on_base():
+def get_trending_pairs():
 
     global top_tokens_24h
     global seen_tokens
@@ -195,7 +208,7 @@ def get_new_pairs_on_base():
 
         print(
             f"\n[{datetime.now()}] "
-            f"🔍 Scanning Base..."
+            f"🔍 Scanning Trending Base Pools..."
         )
 
         current_top = []
@@ -261,7 +274,9 @@ def get_new_pairs_on_base():
                     f"AGE {age_min}m"
                 )
 
-                # ================= FILTERS =================
+                # =================================================
+                # FILTERS
+                # =================================================
 
                 if liquidity < MIN_LIQUIDITY:
                     continue
@@ -277,7 +292,9 @@ def get_new_pairs_on_base():
                 if ratio > MAX_VOL_LIQ_RATIO:
                     continue
 
-                # ============================================
+                # =================================================
+                # DUPLICATE CHECK
+                # =================================================
 
                 if contract in seen_tokens:
                     continue
@@ -289,7 +306,7 @@ def get_new_pairs_on_base():
                 status = (
                     "🚀 NEW STRONG TOKEN"
                     if age_min <= 90
-                    else "🔥 HIGH VOLUME TOKEN"
+                    else "🔥 TRENDING TOKEN"
                 )
 
                 message = f"""
@@ -315,7 +332,7 @@ Trade with Based Bot
 """
 
                 print(
-                    f"\n🚨 ALERT SENT:"
+                    f"\n🚨 ALERT:"
                     f"\n{name}"
                     f"\nVOL ${volume:,.0f}"
                     f"\nLIQ ${liquidity:,.0f}"
@@ -349,7 +366,7 @@ Trade with Based Bot
 # TELEGRAM COMMANDS
 # =========================================================
 
-def check_telegram_commands_once():
+def check_telegram_commands():
 
     global telegram_offset
 
@@ -446,11 +463,11 @@ if __name__ == "__main__":
 
         try:
 
-            get_new_pairs_on_base()
+            get_trending_pairs()
 
             for _ in range(CHECK_INTERVAL):
 
-                check_telegram_commands_once()
+                check_telegram_commands()
 
                 time.sleep(1)
 
