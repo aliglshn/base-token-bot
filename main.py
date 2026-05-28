@@ -37,7 +37,7 @@ def get_new_pairs_on_base():
         data = response.json()
         pools = data.get('data', [])
         
-        print(f"\n[{datetime.now()}] 🔍 High Volume Scanner Running... (Min 50k Volume)")
+        print(f"\n[{datetime.now()}] 🔍 High Volume + High Liq Scanner (Min 50k Vol | 10k Liq)")
         
         current_top = []
         
@@ -74,14 +74,11 @@ def get_new_pairs_on_base():
             
             current_top.append(token_info)
             
-            # فقط توکن‌هایی که ولوم بالای ۵۰ هزار دلار دارن
-            if vol >= 50000:
+            # فیلتر نهایی: ولوم بالای ۵۰k + لیکوییدیتی بالای ۱۰k
+            if vol >= 50000 and liq >= 10000:
                 if contract not in seen_tokens:
                     seen_tokens.add(contract)
-                    status = "🔥 HIGH VOLUME"
-                    if age_min <= 60:
-                        status = "🚀 NEW + HIGH VOL"
-                    
+                    status = "🚀 NEW + STRONG" if age_min <= 90 else "🔥 HIGH VOLUME"
                     msg = f"""<b>{status} on Base!</b>
 
 🪙 {name}
@@ -121,7 +118,7 @@ def check_telegram_commands():
                         send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده...")
                         continue
                     
-                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته (بالای ۵۰k Volume)</b>\n\n"
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته</b>\n\n"
                     for i, t in enumerate(top_tokens_24h[:8], 1):
                         msg += f"{i}. <b>{t['name']}</b>\n   Vol: ${t['vol']:,.0f} | Liq: ${t['liq']:,.0f} | Age: {t['age']} min\n   <a href='{t['link']}'>Link</a>\n\n"
                     msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
@@ -130,7 +127,7 @@ def check_telegram_commands():
             time.sleep(5)
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - High Volume Mode (Min 50k)")
+    print("🚀 Base Meme Radar Bot - High Volume + High Liquidity (50k Vol | 10k Liq)")
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
     
