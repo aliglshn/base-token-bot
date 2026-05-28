@@ -8,7 +8,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 # ===========================================================
 
-CHECK_INTERVAL = 60   # چک هر ۶۰ ثانیه (سریع‌تر)
+CHECK_INTERVAL = 60
 
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -29,7 +29,7 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Very Light Filter - Showing almost all new pairs...")
+        print(f"\n[{datetime.now()}] 🔍 Smart Scanner - New + High Volume Tokens...")
         
         pairs = data.get('pairs', [])
         found = False
@@ -39,7 +39,7 @@ def get_new_pairs_on_base():
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
             price = pair.get('priceUsd', 'N/A')
-            vol = pair.get('volume', {}).get('h24', 0)
+            vol_24h = pair.get('volume', {}).get('h24', 0)
             liq = pair.get('liquidity', {}).get('usd', 0)
             created = pair.get('pairCreatedAt')
             address = pair.get('pairAddress')
@@ -49,42 +49,51 @@ def get_new_pairs_on_base():
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            # ==================== VERY LIGHT FILTER ====================
-            if age_min > 90:           # حداکثر ۹۰ دقیقه
+            # ==================== SMART FILTER ====================
+            is_new = age_min <= 60 and liq >= 3000
+            is_high_volume = vol_24h >= 50000   # توکن‌هایی که حجم خیلی خوبی می‌خورن
+            
+            if not (is_new or is_high_volume):
                 continue
-            if liq < 3000:             # حداقل ۳۰۰۰ دلار لیکوییدیتی
-                continue
-            # ========================================================
+            # ====================================================
             
             found = True
             link = f"https://dexscreener.com/base/{address}"
             
-            print(f"\n🚀 NEW PAIR DETECTED!")
+            if is_new:
+                status = "🚀 NEW LAUNCH"
+            else:
+                status = "🔥 HIGH VOLUME"
+            
+            print(f"\n{status} DETECTED!")
             print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
-            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol:,}")
+            print(f"   💰 Price: ${price} | Liq: ${liq:,} | 24h Vol: ${vol_24h:,}")
             print(f"   🔗 {link}")
             
-            message = f"""🚀 <b>New Pair on Base</b>
+            message = f"""<b>{status} on Base!</b>
 
 🪙 <b>{name}</b> (${symbol})
 💰 Price: ${price}
-📊 Liq: ${liq:,} | Vol: ${vol:,}
+📊 Liquidity: ${liq:,}
+📈 24h Volume: ${vol_24h:,}
 ⏱️ {age_min} minutes old
 
-🔗 <a href="{link}">DexScreener</a>"""
+🔗 <a href="{link}">DexScreener</a>
 
+#Base #Memecoin"""
+            
             send_telegram_message(message)
-            print("-" * 70)
+            print("-" * 80)
         
         if not found:
-            print("⏳ No new pairs with Liq > 3k found right now...")
+            print("⏳ No new or high-volume tokens right now...")
             
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - VERY LIGHT FILTER")
-    print("Age < 90min | Liq > 3k")
+    print("🚀 Base Meme Radar Bot - SMART MODE")
+    print("Detecting New Launches + High Volume Tokens")
     
     while True:
         get_new_pairs_on_base()
