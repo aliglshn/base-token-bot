@@ -12,7 +12,7 @@ BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 # ===================================================
 
 seen_tokens = set()
-trending_tokens = []
+trending_tokens = []  # برای دستور /trending
 
 def send_message(chat_id, text):
     if not TELEGRAM_BOT_TOKEN or not chat_id:
@@ -25,16 +25,6 @@ def send_message(chat_id, text):
     except:
         return False
 
-def detect_launcher(name):
-    n = name.lower()
-    if "clanker" in n:
-        return "🟢 Clanker"
-    elif "virtual" in n or "virtuals" in n:
-        return "🔵 Virtuals"
-    elif "banker" in n:
-        return "🔴 Banker"
-    return "⚪ Normal"
-
 def scan():
     global trending_tokens
     url = "https://api.geckoterminal.com/api/v2/networks/base/new_pools"
@@ -44,7 +34,7 @@ def scan():
         data = r.json()
         pools = data.get('data', [])
         
-        print(f"\n[{datetime.now()}] 🔍 Professional Scanner Running...")
+        print(f"\n[{datetime.now()}] Scanning for strong tokens...")
         
         current_trending = []
         
@@ -59,8 +49,8 @@ def scan():
                 continue
                 
             # محاسبه سن
-            created_str = attr.get('pool_created_at')
             age_min = 9999
+            created_str = attr.get('pool_created_at')
             if created_str:
                 try:
                     created_str = created_str.replace('Z', '').split('.')[0]
@@ -69,39 +59,36 @@ def scan():
                 except:
                     pass
             
-            launcher = detect_launcher(name)
-            
             token_info = {
                 'name': name,
                 'contract': contract,
                 'vol': vol,
                 'liq': liq,
                 'age': age_min,
-                'launcher': launcher,
                 'link': f"https://www.geckoterminal.com/base/pools/{contract}"
             }
             
             current_trending.append(token_info)
             
             # آلرت خودکار برای توکن‌های قوی
-            if vol >= 50000 and liq >= 12000 and contract not in seen_tokens:
+            if vol >= 45000 and liq >= 10000 and contract not in seen_tokens:
                 seen_tokens.add(contract)
-                status = "🚀 NEW + STRONG" if age_min <= 60 else "🔥 HIGH VOLUME"
-                msg = f"""<b>{status} {launcher}</b>
+                msg = f"""<b>🔥 Strong Token on Base!</b>
 
 🪙 {name}
 📍 <code>{contract}</code>
-📊 Vol: ${vol:,.0f} | Liq: ${liq:,.0f}
+📊 Vol 24h: ${vol:,.0f} | Liq: ${liq:,.0f}
 ⏱️ {age_min} min
 
-🔗 <a href="{token_info['link']}">View Chart</a>
+🔗 <a href="{token_info['link']}">GeckoTerminal</a>
 💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
                 send_message(TELEGRAM_CHAT_ID, msg)
         
+        # به‌روزرسانی لیست ترند
         trending_tokens = sorted(current_trending, key=lambda x: x['vol'], reverse=True)[:12]
         
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Scan Error: {e}")
 
 def handle_commands():
     offset = 0
@@ -121,35 +108,33 @@ def handle_commands():
                 
                 if text in ['/trending', '/top', '/best']:
                     if not trending_tokens:
-                        send_message(chat_id, "⏳ No trending tokens yet...")
+                        send_message(chat_id, "⏳ هنوز توکن ترندی ثبت نشده. کمی صبر کن...")
                         continue
                     
                     msg = "<b>🏆 Trending Tokens on Base (Last 24h)</b>\n\n"
                     for i, t in enumerate(trending_tokens[:8], 1):
-                        msg += f"{i}. <b>{t['name']}</b> {t['launcher']}\n"
-                        msg += f"   Vol: ${t['vol']:,.0f} | Liq: ${t['liq']:,.0f}\n"
-                        msg += f"   <a href='{t['link']}'>Chart</a>\n\n"
+                        msg += f"{i}. <b>{t['name']}</b>\n"
+                        msg += f"   Vol: ${t['vol']:,.0f} | Liq: ${t['liq']:,.0f} | Age: {t['age']} min\n"
+                        msg += f"   <a href='{t['link']}'>View Chart</a>\n\n"
                     msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
                     send_message(chat_id, msg)
                 
                 elif text == '/help':
-                    help_text = """<b>🤖 Base Radar Bot Commands</b>
+                    send_message(chat_id, """<b>🤖 Base Radar Bot Commands</b>
 
-• /trending - Top tokens right now
+• /trending - Top trending tokens
 • /top - Same as trending
 • /best - Same as trending
-
-Bot scans every 45 seconds and sends alerts for strong tokens."""
-                    send_message(chat_id, help_text)
+• /help - Show this menu""")
         except:
             time.sleep(5)
 
 if __name__ == "__main__":
-    print("🚀 Professional Base Meme Radar Bot Started")
+    print("🚀 Professional Base Radar Bot Started")
     print("Commands: /trending | /top | /best | /help")
     
     threading.Thread(target=handle_commands, daemon=True).start()
     
     while True:
         scan()
-        time.sleep(CHECK_INTERVAL)
+        time.sleep(40)
