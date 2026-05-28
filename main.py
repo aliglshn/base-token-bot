@@ -12,7 +12,6 @@ BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 # ===================================================
 
 CHECK_INTERVAL = 60
-
 seen_tokens = set()
 
 def send_telegram_message(text):
@@ -66,49 +65,4 @@ def get_new_pairs_on_base():
                 continue
             
             seen_tokens.add(token_key)
-            found_new = True
-            dexscreener_link = f"https://dexscreener.com/base/{pair_address}"
-            
-            if is_new:
-                status = "🚀 NEW LAUNCH"
-            else:
-                status = "🔥 HIGH VOLUME"
-            
-            print(f"\n{status} DETECTED!")
-            print(f"   🪙 {name} (${symbol})")
-            print(f"   📍 Contract: {contract_address}")
-            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
-            print(f"   🔗 {dexscreener_link}")
-            
-            # پیام تلگرام
-            message = f"""<b>{status} on Base!</b>
-
-🪙 <b>{name}</b> (${symbol})
-📍 <code>{contract_address}</code>
-💰 Price: ${price}
-📊 Liq: ${liq:,} | 24h Vol: ${vol_24h:,}
-⏱️ {age_min} minutes old
-
-🔗 <a href="{dexscreener_link}">DexScreener</a>
-
-<b>💸 Trade Now with Based Bot:</b>
-• <a href="{BASED_TELEGRAM}">Telegram Bot</a>
-• <a href="{BASED_X}">X (@basedbot)</a>
-
-#Base #Memecoin"""
-
-            send_telegram_message(message)
-            print("-" * 80)
-        
-        if not found_new:
-            print("⏳ No new or high-volume tokens right now...")
-            
-    except Exception as e:
-        print(f"Error: {e}")
-
-if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - SMART MODE + Contract + Based Bot Links")
-    
-    while True:
-        get_new_pairs_on_base()
-        time.sleep(CHECK_INTERVAL)
+           
