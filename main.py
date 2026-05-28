@@ -48,14 +48,15 @@ def get_new_pairs_on_base():
             contract = attributes.get('address', 'N/A')
             vol = float(attributes.get('volume_usd', {}).get('h24', 0) or 0)
             liq = float(attributes.get('reserve_in_usd', 0) or 0)
-            created_str = attributes.get('pool_created_at')
             
-            # محاسبه امن سن توکن
+            # محاسبه امن سن
+            created_str = attributes.get('pool_created_at')
             if created_str:
                 try:
-                    created_str = created_str.replace('Z', '+00:00')
+                    # حذف Z و تبدیل به datetime
+                    created_str = created_str.replace('Z', '')
                     created_time = datetime.fromisoformat(created_str)
-                    age_min = int((datetime.utcnow() - created_time.replace(tzinfo=None)).total_seconds() / 60)
+                    age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
                 except:
                     age_min = 9999
             else:
