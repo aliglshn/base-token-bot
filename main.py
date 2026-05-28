@@ -2,60 +2,96 @@ import requests
 import time
 from datetime import datetime
 
-CHECK_INTERVAL = 90  # چک هر ۱.۵ دقیقه
+# ====================== CONFIG ======================
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')   # بعداً تو Railway اضافه می‌کنیم
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')       # Chat ID خودت
+
+CHECK_INTERVAL = 90
+# ===================================================
+
+def send_telegram_message(text):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("📝 [LOG] Telegram not configured:", text[:100])
+        return False
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML"
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            print("✅ Telegram Alert Sent!")
+            return True
+        else:
+            print(f"❌ Telegram Error: {response.text}")
+            return False
+    except Exception as e:
+        print(f"❌ Telegram Failed: {e}")
+        return False
 
 def get_new_pairs_on_base():
     url = "https://api.dexscreener.com/latest/dex/search?q=base"
     
     try:
         response = requests.get(url, timeout=15)
-        response.raise_for_status()
         data = response.json()
         
         print(f"\n[{datetime.now()}] 🔍 Scanning for new memes on Base...")
         
         pairs = data.get('pairs', [])
-        found_new = False
+        found = False
         
         for pair in pairs[:100]:
             base_token = pair.get('baseToken', {})
-            token_name = base_token.get('name', 'Unknown')
-            token_symbol = base_token.get('symbol', '???')
+            name = base_token.get('name', 'Unknown')
+            symbol = base_token.get('symbol', '???')
             price = pair.get('priceUsd', 'N/A')
-            volume_24h = pair.get('volume', {}).get('h24', 0)
-            liquidity = pair.get('liquidity', {}).get('usd', 0)
-            pair_created_at = pair.get('pairCreatedAt')
-            pair_address = pair.get('pairAddress')
+            vol = pair.get('volume', {}).get('h24', 0)
+            liq = pair.get('liquidity', {}).get('usd', 0)
+            created = pair.get('pairCreatedAt')
+            address = pair.get('pairAddress')
             
-            if not pair_created_at or not pair_address:
+            if not created or not address:
                 continue
                 
-            age_minutes = int((time.time() * 1000 - pair_created_at) / 60000)
+            age_min = int((time.time() * 1000 - created) / 60000)
             
-            # فیلتر خوب برای میم‌کوین جدید
-            if age_minutes > 60 or liquidity < 8000 or volume_24h < 1000:
+            if age_min > 90 or liq < 6000 or vol < 600:
                 continue
                 
-            found_new = True
-            link = f"https://dexscreener.com/base/{pair_address}"
+            found = True
+            link = f"https://dexscreener.com/base/{address}"
             
             print(f"\n🚀 NEW MEME DETECTED!")
-            print(f"   🪙 {token_name} (${token_symbol})")
-            print(f"   💰 Price: ${price}")
-            print(f"   📊 Liquidity: ${liquidity:,} | 24h Vol: ${volume_24h:,}")
-            print(f"   ⏱️ Age: {age_minutes} minutes")
+            print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
             print(f"   🔗 {link}")
-            print("-" * 80)
+            
+            # ارسال به تلگرام
+            message = f"""🚀 <b>New Meme on Base!</b>
+
+🪙 <b>{name}</b> (${symbol})
+💰 Price: ${price}
+📊 Liq: ${liq:,} | Vol: ${vol:,}
+⏱️ {age_min} minutes old
+
+🔗 {link}
+
+#Base #Memecoin"""
+            
+            send_telegram_message(message)
+            print("-" * 70)
         
-        if not found_new:
-            print("⏳ No new high-quality memes found right now.")
-    
+        if not found:
+            print("⏳ No new interesting memes right now.")
+            
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot Started (Logging Mode)")
-    print("Will only log new memes - No tweeting for now")
+    print("🚀 Base Meme Radar Bot Started with Telegram Alerts")
     
     while True:
         get_new_pairs_on_base()
