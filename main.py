@@ -75,16 +75,7 @@ def get_new_pairs_on_base():
                 if pair_address not in seen_tokens:
                     seen_tokens.add(pair_address)
                     status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
-                    msg = f"""<b>{status} on Base!</b>
-
-🪙 {name} (${symbol})
-📍 <code>{contract}</code>
-📊 Vol: ${vol:,} | Liq: ${liq:,}
-⏱️ {age_min} min
-
-🔗 <a href="{token_info['link']}">DexScreener</a>
-
-💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
+                    msg = f"<b>{status} on Base!</b>\n\n🪙 {name} (${symbol})\n📍 <code>{contract}</code>\n📊 Vol: ${vol:,} | Liq: ${liq:,}\n⏱️ {age_min} min\n\n🔗 <a href='{token_info['link']}'>DexScreener</a>\n\n💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
                     send_telegram_message(TELEGRAM_CHAT_ID, msg)
         
         top_tokens_24h = sorted(current_top, key=lambda x: x['vol'], reverse=True)[:10]
@@ -115,9 +106,7 @@ def check_telegram_commands():
                     
                     msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته</b>\n\n"
                     for i, t in enumerate(top_tokens_24h[:8], 1):
-                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n"
-                        msg += f"   Vol: ${t['vol']:,} | Liq: ${t['liq']:,}\n"
-                        msg += f"   <a href='{t['link']}'>DexScreener</a>\n\n"
+                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n   Vol: ${t['vol']:,} | Liq: ${t['liq']:,}\n   <a href='{t['link']}'>DexScreener</a>\n\n"
                     msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
                     send_telegram_message(chat_id, msg)
         except:
