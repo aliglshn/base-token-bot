@@ -8,7 +8,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 # ===========================================================
 
-CHECK_INTERVAL = 90
+CHECK_INTERVAL = 75   # چک هر ۷۵ ثانیه
 
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -29,12 +29,12 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Medium Filter Scan - Looking for potential memes...")
+        print(f"\n[{datetime.now()}] 🔍 Light Filter Scan - Looking for potential launches...")
         
         pairs = data.get('pairs', [])
         found = False
         
-        for pair in pairs[:120]:
+        for pair in pairs[:150]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
@@ -49,33 +49,31 @@ def get_new_pairs_on_base():
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            # ==================== MEDIUM FILTER ====================
-            if age_min > 60:                    # حداکثر ۶۰ دقیقه
+            # ==================== LIGHT FILTER ====================
+            if age_min > 75:           # حداکثر ۷۵ دقیقه
                 continue
-            if liq < 8000:                      # حداقل لیکوییدیتی
+            if liq < 5000:             # حداقل لیکوییدیتی
                 continue
-            if vol < 2000:                      # حداقل ولوم
+            if vol < 1000:             # حداقل ولوم
                 continue
             # ====================================================
             
             found = True
             link = f"https://dexscreener.com/base/{address}"
             
-            print(f"\n🚀 POTENTIAL MEME DETECTED!")
+            print(f"\n🚀 POTENTIAL NEW MEME!")
             print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
             print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol:,}")
             print(f"   🔗 {link}")
             
-            # ارسال به تلگرام
-            message = f"""🚀 <b>Potential Meme on Base!</b>
+            message = f"""🚀 <b>Potential New Meme on Base</b>
 
 🪙 <b>{name}</b> (${symbol})
 💰 Price: ${price}
-📊 Liquidity: ${liq:,}
-📈 24h Volume: ${vol:,}
+📊 Liq: ${liq:,} | Vol: ${vol:,}
 ⏱️ {age_min} minutes old
 
-🔗 <a href="{link}">DexScreener</a>
+🔗 <a href="{link}">View on DexScreener</a>
 
 #Base #Memecoin"""
             
@@ -83,14 +81,14 @@ def get_new_pairs_on_base():
             print("-" * 80)
         
         if not found:
-            print("⏳ No potential memes passed the filter right now.")
+            print("⏳ No potential memes right now...")
             
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - MEDIUM FILTER Mode")
-    print("Age < 60min | Liq > 8k | Vol > 2k")
+    print("🚀 Base Meme Radar Bot - LIGHT FILTER Mode")
+    print("Age < 75min | Liq > 5k | Vol > 1k")
     
     while True:
         get_new_pairs_on_base()
