@@ -32,7 +32,6 @@ def send_telegram_message(text):
 
 def get_new_pairs_on_base():
     url = "https://api.dexscreener.com/latest/dex/search?q=base"
-    
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
@@ -93,8 +92,8 @@ def get_new_pairs_on_base():
 
 🔗 <a href="{dexscreener_link}">DexScreener</a>
 
-<b>💸 Trade Now with Based Bot:</b>
-• <a href="{BASED_TELEGRAM}">Telegram Bot</a>
+<b>💸 Trade Now:</b>
+• <a href="{BASED_TELEGRAM}">Telegram Based Bot</a>
 • <a href="{BASED_X}">X (@basedbot)</a>
 
 #Base #Memecoin"""
