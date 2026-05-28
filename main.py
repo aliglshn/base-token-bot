@@ -3,14 +3,17 @@ import time
 import os
 from datetime import datetime
 
-# ====================== TELEGRAM CONFIG ======================
+# ====================== CONFIG ======================
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-# ===========================================================
+
+# لینک‌های ترید بات Based
+BASED_X = "https://x.com/basedbot"
+BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
+# ===================================================
 
 CHECK_INTERVAL = 60
 
-# ذخیره توکن‌های دیده شده برای جلوگیری از تکرار
 seen_tokens = set()
 
 def send_telegram_message(text):
@@ -41,7 +44,7 @@ def get_new_pairs_on_base():
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
-            contract_address = base_token.get('address', 'N/A')   # ← آدرس قرارداد
+            contract_address = base_token.get('address', 'N/A')
             price = pair.get('priceUsd', 'N/A')
             vol_24h = pair.get('volume', {}).get('h24', 0)
             liq = pair.get('liquidity', {}).get('usd', 0)
@@ -57,7 +60,6 @@ def get_new_pairs_on_base():
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            # ==================== SMART FILTER ====================
             is_new = age_min <= 60 and liq >= 4000
             is_high_volume = vol_24h >= 80000 and age_min <= 180
             
@@ -75,4 +77,8 @@ def get_new_pairs_on_base():
             
             print(f"\n{status} DETECTED!")
             print(f"   🪙 {name} (${symbol})")
-            print(f"   📍 Contract: {
+            print(f"   📍 Contract: {contract_address}")
+            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
+            print(f"   🔗 {dexscreener_link}")
+            
+            message = f"""<b>{status}
