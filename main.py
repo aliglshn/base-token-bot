@@ -1,4 +1,4 @@
-```python
+```python id="z4yn7m"
 import requests
 import time
 import os
@@ -17,17 +17,25 @@ from urllib3.util.retry import Retry
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-BASED_X = "https://x.com/basedbot"
-BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
-
 CHECK_INTERVAL = 45
 
-MIN_VOLUME = 50000
-MIN_LIQUIDITY = 10000
+# ================= FILTERS =================
+
+MIN_VOLUME = 100000          # حداقل ولوم
+MIN_LIQUIDITY = 25000        # حداقل لیکوییدیتی
+MIN_AGE_MINUTES = 5          # حداقل سن توکن
+MAX_VOL_LIQ_RATIO = 15       # جلوگیری از فیک ولوم
+
+# ===========================================
+
+BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
+
+GECKO_API = (
+    "https://api.geckoterminal.com/api/v2/"
+    "networks/base/new_pools"
+)
 
 SEEN_FILE = "seen_tokens.json"
-
-GECKO_API = "https://api.geckoterminal.com/api/v2/networks/base/new_pools"
 
 # =========================================================
 # GLOBALS
@@ -37,63 +45,110 @@ top_tokens_24h = []
 top_lock = threading.Lock()
 
 # =========================================================
-# HTTP SESSION WITH RETRY
+# HTTP SESSION
 # =========================================================
 
 session = requests.Session()
 
-retries = Retry(
+retry_strategy = Retry(
     total=5,
     backoff_factor=1,
     status_forcelist=[429, 500, 502, 503, 504],
     allowed_methods=["GET", "POST"]
 )
 
-adapter = HTTPAdapter(max_retries=retries)
+adapter = HTTPAdapter(max_retries=retry_strategy)
 
 session.mount("https://", adapter)
 session.mount("http://", adapter)
 
 # =========================================================
-# PERSISTENT STORAGE
+# STORAGE
 # =========================================================
 
 def load_seen_tokens():
+
     if not os.path.exists(SEEN_FILE):
         return set()
 
     try:
+
         with open(SEEN_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         return set(data)
 
     except Exception as e:
+
         print(f"[LOAD ERROR] {e}")
         return set()
 
 
 def save_seen_tokens(tokens):
+
     try:
+
         with open(SEEN_FILE, "w", encoding="utf-8") as f:
             json.dump(list(tokens), f)
 
     except Exception as e:
+
         print(f"[SAVE ERROR] {e}")
 
 
 seen_tokens = load_seen_tokens()
 
 # =========================================================
+# HELPERS
+# =========================================================
+
+def safe_float(value, default=0):
+
+    try:
+        return float(value)
+
+    except:
+        return default
+
+
+def calculate_age_minutes(created_str):
+
+    if not created_str:
+        return 9999
+
+    try:
+
+        created_str = created_str.replace("Z", "+00:00")
+
+        created_time = datetime.fromisoformat(created_str)
+
+        now = datetime.now(timezone.utc)
+
+        age = int(
+            (now - created_time).total_seconds() / 60
+        )
+
+        return age
+
+    except Exception as e:
+
+        print(f"[AGE ERROR] {e}")
+        return 9999
+
+# =========================================================
 # TELEGRAM
 # =========================================================
 
 def send_telegram_message(chat_id, text):
+
     if not TELEGRAM_BOT_TOKEN:
-        print("[ERROR] TELEGRAM_BOT_TOKEN not found")
+        print("[ERROR] TELEGRAM_BOT_TOKEN missing")
         return False
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    url = (
+        f"https://api.telegram.org/"
+        f"bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    )
 
     payload = {
         "chat_id": chat_id,
@@ -103,64 +158,46 @@ def send_telegram_message(chat_id, text):
     }
 
     try:
-        response = session.post(url, json=payload, timeout=15)
+
+        response = session.post(
+            url,
+            json=payload,
+            timeout=15
+        )
 
         response.raise_for_status()
 
         result = response.json()
 
         if not result.get("ok"):
+
             print("[TELEGRAM ERROR]", result)
+
             return False
 
         return True
 
     except Exception as e:
+
         print(f"[TELEGRAM SEND ERROR] {e}")
+
         return False
 
 # =========================================================
-# HELPERS
-# =========================================================
-
-def safe_float(value, default=0):
-    try:
-        return float(value)
-    except:
-        return default
-
-
-def calculate_age_minutes(created_str):
-    if not created_str:
-        return 9999
-
-    try:
-        created_str = created_str.replace("Z", "+00:00")
-
-        created_time = datetime.fromisoformat(created_str)
-
-        now = datetime.now(timezone.utc)
-
-        age_minutes = int(
-            (now - created_time).total_seconds() / 60
-        )
-
-        return age_minutes
-
-    except Exception as e:
-        print(f"[AGE ERROR] {e}")
-        return 9999
-
-# =========================================================
-# GECKO TERMINAL SCANNER
+# MAIN SCANNER
 # =========================================================
 
 def get_new_pairs_on_base():
+
     global top_tokens_24h
     global seen_tokens
 
     try:
-        response = session.get(GECKO_API, timeout=20)
+
+        response = session.get(
+            GECKO_API,
+            timeout=20
+        )
 
         response.raise_for_status()
 
@@ -170,101 +207,174 @@ def get_new_pairs_on_base():
 
         print(
             f"\n[{datetime.now()}] "
-            f"🔍 Scanning Base New Pools..."
+            f"🔍 Scanning Base..."
         )
 
         current_top = []
 
         for pool in pools:
 
-            attributes = pool.get("attributes", {})
+            try:
 
-            name = attributes.get("name", "Unknown")
+                attributes = pool.get("attributes", {})
 
-            name = html.escape(name)
+                name = html.escape(
+                    attributes.get("name", "Unknown")
+                )
 
-            contract = attributes.get("address", "N/A")
+                contract = attributes.get(
+                    "address",
+                    "N/A"
+                )
 
-            volume = safe_float(
-                attributes.get("volume_usd", 0)
-            )
+                volume = safe_float(
+                    attributes.get("volume_usd", 0)
+                )
 
-            liquidity = safe_float(
-                attributes.get("reserve_in_usd", 0)
-            )
+                liquidity = safe_float(
+                    attributes.get("reserve_in_usd", 0)
+                )
 
-            created_str = attributes.get("pool_created_at")
+                created_str = attributes.get(
+                    "pool_created_at"
+                )
 
-            age_min = calculate_age_minutes(created_str)
+                age_min = calculate_age_minutes(
+                    created_str
+                )
 
-            token_info = {
-                "name": name,
-                "contract": contract,
-                "vol": volume,
-                "liq": liquidity,
-                "age": age_min,
-                "link": f"https://www.geckoterminal.com/base/pools/{contract}"
-            }
+                # =========================================
+                # BASIC VALIDATION
+                # =========================================
 
-            current_top.append(token_info)
+                if contract == "N/A":
+                    continue
 
-            print(
-                f"{name[:30]:30} | "
-                f"VOL ${volume:,.0f} | "
-                f"LIQ ${liquidity:,.0f} | "
-                f"{age_min}m"
-            )
+                if liquidity <= 0:
+                    continue
 
-            # =================================================
-            # FILTER
-            # =================================================
+                # =========================================
+                # STORE FOR /TOP
+                # =========================================
 
-            if (
-                volume >= MIN_VOLUME
-                and liquidity >= MIN_LIQUIDITY
-            ):
-
-                if contract not in seen_tokens:
-
-                    seen_tokens.add(contract)
-
-                    save_seen_tokens(seen_tokens)
-
-                    status = (
-                        "🚀 NEW + STRONG"
-                        if age_min <= 90
-                        else "🔥 HIGH VOLUME"
+                token_info = {
+                    "name": name,
+                    "contract": contract,
+                    "vol": volume,
+                    "liq": liquidity,
+                    "age": age_min,
+                    "link": (
+                        f"https://www.geckoterminal.com/"
+                        f"base/pools/{contract}"
                     )
+                }
 
-                    message = f"""
-<b>{status} on Base!</b>
+                current_top.append(token_info)
 
-🪙 {name}
+                # =========================================
+                # DEBUG LOG
+                # =========================================
+
+                print(
+                    f"{name[:28]:28} | "
+                    f"VOL ${volume:,.0f} | "
+                    f"LIQ ${liquidity:,.0f} | "
+                    f"AGE {age_min}m"
+                )
+
+                # =========================================
+                # STRONG FILTERS
+                # =========================================
+
+                # حداقل لیکوییدیتی
+                if liquidity < MIN_LIQUIDITY:
+                    continue
+
+                # حداقل ولوم
+                if volume < MIN_VOLUME:
+                    continue
+
+                # حداقل سن
+                if age_min < MIN_AGE_MINUTES:
+                    continue
+
+                # جلوگیری از فیک ولوم
+                ratio = volume / liquidity
+
+                if ratio > MAX_VOL_LIQ_RATIO:
+                    continue
+
+                # =========================================
+                # DUPLICATE CHECK
+                # =========================================
+
+                if contract in seen_tokens:
+                    continue
+
+                seen_tokens.add(contract)
+
+                save_seen_tokens(seen_tokens)
+
+                # =========================================
+                # STATUS
+                # =========================================
+
+                status = (
+                    "🚀 NEW STRONG TOKEN"
+                    if age_min <= 90
+                    else "🔥 HIGH VOLUME TOKEN"
+                )
+
+                # =========================================
+                # TELEGRAM MESSAGE
+                # =========================================
+
+                message = f"""
+<b>{status}</b>
+
+🪙 <b>{name}</b>
 
 📍 <code>{contract}</code>
 
-📊 Vol 24h: ${volume:,.0f}
+📊 Volume 24h: ${volume:,.0f}
+
 💧 Liquidity: ${liquidity:,.0f}
+
+⚖️ Vol/Liq Ratio: {ratio:.1f}
 
 ⏱️ Age: {age_min} min
 
-🔗 <a href="{token_info['link']}">GeckoTerminal</a>
+🔗 <a href="{token_info['link']}">
+GeckoTerminal
+</a>
 
 💸 <a href="{BASED_TELEGRAM}">
 Trade with Based Bot
 </a>
 """
 
-                    print(f"[ALERT] {name}")
+                print(
+                    f"\n🚨 ALERT SENT:"
+                    f"\n{name}"
+                    f"\nVOL ${volume:,.0f}"
+                    f"\nLIQ ${liquidity:,.0f}"
+                    f"\nRATIO {ratio:.1f}\n"
+                )
 
-                    send_telegram_message(
-                        TELEGRAM_CHAT_ID,
-                        message
-                    )
+                send_telegram_message(
+                    TELEGRAM_CHAT_ID,
+                    message
+                )
 
-        # =====================================================
-        # UPDATE TOP TOKENS THREAD-SAFE
-        # =====================================================
+            except Exception as pool_error:
+
+                print(f"[POOL ERROR] {pool_error}")
+
+                continue
+
+        # =============================================
+        # UPDATE TOP TOKENS
+        # =============================================
 
         current_top = sorted(
             current_top,
@@ -273,9 +383,11 @@ Trade with Based Bot
         )[:10]
 
         with top_lock:
+
             top_tokens_24h = current_top
 
     except Exception as e:
+
         print(f"[SCAN ERROR] {e}")
 
 # =========================================================
@@ -329,11 +441,16 @@ def check_telegram_commands():
                     .lower()
                 )
 
-                # =============================================
+                # =====================================
                 # /TOP
-                # =============================================
+                # =====================================
 
-                if text in ["/top", "/best", "top", "best"]:
+                if text in [
+                    "/top",
+                    "/best",
+                    "top",
+                    "best"
+                ]:
 
                     with top_lock:
                         current_top = top_tokens_24h.copy()
@@ -342,7 +459,7 @@ def check_telegram_commands():
 
                         send_telegram_message(
                             chat_id,
-                            "⏳ هنوز اطلاعات کافی جمع نشده..."
+                            "⏳ هنوز دیتا جمع نشده..."
                         )
 
                         continue
@@ -358,7 +475,10 @@ def check_telegram_commands():
                             f"📊 Vol: ${token['vol']:,.0f}\n"
                             f"💧 Liq: ${token['liq']:,.0f}\n"
                             f"⏱️ Age: {token['age']} min\n"
-                            f"🔗 <a href='{token['link']}'>Chart</a>\n\n"
+                            f"🔗 "
+                            f"<a href='{token['link']}'>"
+                            f"Chart"
+                            f"</a>\n\n"
                         )
 
                     msg += (
@@ -367,7 +487,10 @@ def check_telegram_commands():
                         f"</a>"
                     )
 
-                    send_telegram_message(chat_id, msg)
+                    send_telegram_message(
+                        chat_id,
+                        msg
+                    )
 
         except Exception as e:
 
@@ -382,9 +505,27 @@ def check_telegram_commands():
 if __name__ == "__main__":
 
     print(
-        "🚀 Base Meme Radar Bot Started\n"
-        f"Min Volume: ${MIN_VOLUME:,}\n"
-        f"Min Liquidity: ${MIN_LIQUIDITY:,}\n"
+        "\n🚀 BASE MEME RADAR STARTED\n"
+    )
+
+    print(
+        f"MIN VOLUME: ${MIN_VOLUME:,}"
+    )
+
+    print(
+        f"MIN LIQUIDITY: ${MIN_LIQUIDITY:,}"
+    )
+
+    print(
+        f"MIN AGE: {MIN_AGE_MINUTES} min"
+    )
+
+    print(
+        f"MAX VOL/LIQ RATIO: {MAX_VOL_LIQ_RATIO}"
+    )
+
+    print(
+        f"CHECK INTERVAL: {CHECK_INTERVAL}s\n"
     )
 
     telegram_thread = threading.Thread(
