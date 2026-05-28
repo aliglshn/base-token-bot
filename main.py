@@ -2,7 +2,7 @@ import requests
 import time
 from datetime import datetime
 
-CHECK_INTERVAL = 120  # چک هر ۲ دقیقه
+CHECK_INTERVAL = 120  # Check every 2 minutes
 
 def get_new_pairs_on_base():
     url = "https://api.dexscreener.com/latest/dex/search?q=base"
@@ -12,12 +12,12 @@ def get_new_pairs_on_base():
         response.raise_for_status()
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Scanning for NEW pairs on Base...")
+        print(f"\n[{datetime.now()}] 🔍 Scanning for new pairs on Base...")
         
         pairs = data.get('pairs', [])
-        found_recent = False
+        recent_found = False
         
-        for pair in pairs[:50]:  # چک تعداد بیشتر
+        for pair in pairs[:60]:
             base_token = pair.get('baseToken', {})
             token_name = base_token.get('name', 'Unknown')
             token_symbol = base_token.get('symbol', '???')
@@ -31,27 +31,32 @@ def get_new_pairs_on_base():
                 
             age_minutes = int((time.time() * 1000 - pair_created_at) / 60000)
             
-            # فیلتر خیلی سخت: فقط توکن‌های خیلی جدید
-            if age_minutes > 60:  # حداکثر ۱ ساعت
+            # Strict filter: only very new tokens
+            if age_minutes > 30:
                 continue
-            if liquidity < 5000:  # حداقل لیکوییدیتی
+            if liquidity < 8000:
+                continue
+            if volume_24h < 1000:
                 continue
                 
-            found_recent = True
-            print(f"🚀 NEW MEME! {token_name} ({token_symbol})")
-            print(f"   Price: ${price} | Vol 24h: ${volume_24h:,} | Liq: ${liquidity:,} | Age: {age_minutes} min")
-            print(f"   Link: https://dexscreener.com/base/{pair.get('pairAddress')}")
-            print("-" * 60)
+            recent_found = True
+            print(f"🚀 FOUND NEW MEME COIN!")
+            print(f"   🪙 {token_name} ({token_symbol})")
+            print(f"   💰 Price: ${price}")
+            print(f"   📊 Vol 24h: ${volume_24h:,} | Liq: ${liquidity:,}")
+            print(f"   ⏱️ Age: {age_minutes} minutes")
+            print(f"   🔗 https://dexscreener.com/base/{pair.get('pairAddress')}")
+            print("-" * 70)
         
-        if not found_recent:
-            print("⏳ No new pairs (under 60 min + good liquidity) found right now.")
+        if not recent_found:
+            print("⏳ No new high-quality pairs found in the last 30 minutes.")
     
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Token Radar Bot - Strict New Meme Filter")
-    print("Only showing pairs < 60 minutes old with decent liquidity")
+    print("🚀 Base Meme Radar Bot - STRICT NEW FILTER")
+    print("Only showing tokens under 30 minutes old with good liquidity")
     
     while True:
         get_new_pairs_on_base()
