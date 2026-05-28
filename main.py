@@ -1,28 +1,12 @@
 import os
-import tweepy
 from datetime import datetime
 
-# Twitter Setup
-client = tweepy.Client(
-    consumer_key=os.getenv('TWITTER_API_KEY'),
-    consumer_secret=os.getenv('TWITTER_API_SECRET'),
-    access_token=os.getenv('TWITTER_ACCESS_TOKEN'),
-    access_token_secret=os.getenv('TWITTER_ACCESS_SECRET')
-)
+print("=== ENVIRONMENT VARIABLES CHECK ===")
+print("TWITTER_API_KEY:", "✅ Exists" if os.getenv('TWITTER_API_KEY') else "❌ MISSING")
+print("TWITTER_API_SECRET:", "✅ Exists" if os.getenv('TWITTER_API_SECRET') else "❌ MISSING")
+print("TWITTER_ACCESS_TOKEN:", "✅ Exists" if os.getenv('TWITTER_ACCESS_TOKEN') else "❌ MISSING")
+print("TWITTER_ACCESS_SECRET:", "✅ Exists" if os.getenv('TWITTER_ACCESS_SECRET') else "❌ MISSING")
+print("==================================\n")
 
-print("✅ Twitter Connected!")
-
-# تست توییت
-test_tweet = f"""🧪 Test Tweet from Base Meme Radar Bot
-
-This is a test.
-Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-Bot is working correctly! 🚀"""
-
-try:
-    response = client.create_tweet(text=test_tweet)
-    print(f"✅ Test Tweet Posted Successfully!")
-    print(f"Tweet ID: {response.data['id']}")
-except Exception as e:
-    print(f"❌ Error posting test tweet: {e}")
+print(f"Bot started at: {datetime.now()}")
+print("If all are ✅, Twitter should work.")
