@@ -3,7 +3,6 @@ import time
 import os
 import json
 import html
-import threading
 
 from datetime import datetime, timezone
 from requests.adapters import HTTPAdapter
@@ -18,14 +17,10 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 CHECK_INTERVAL = 45
 
-# ================= FILTERS =================
-
 MIN_VOLUME = 100000
 MIN_LIQUIDITY = 25000
 MIN_AGE_MINUTES = 5
 MAX_VOL_LIQ_RATIO = 15
-
-# ===========================================
 
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 
@@ -41,7 +36,7 @@ SEEN_FILE = "seen_tokens.json"
 # =========================================================
 
 top_tokens_24h = []
-top_lock = threading.Lock()
+telegram_offset = 0
 
 # =========================================================
 # HTTP SESSION
@@ -177,7 +172,7 @@ def send_telegram_message(chat_id, text):
         return False
 
 # =========================================================
-# MAIN SCANNER
+# SCANNER
 # =========================================================
 
 def get_new_pairs_on_base():
@@ -236,10 +231,6 @@ def get_new_pairs_on_base():
                     created_str
                 )
 
-                # =========================================
-                # VALIDATION
-                # =========================================
-
                 if contract == "N/A":
                     continue
 
@@ -248,10 +239,6 @@ def get_new_pairs_on_base():
 
                 if volume <= 0:
                     continue
-
-                # =========================================
-                # STORE FOR /TOP
-                # =========================================
 
                 token_info = {
                     "name": name,
@@ -274,9 +261,7 @@ def get_new_pairs_on_base():
                     f"AGE {age_min}m"
                 )
 
-                # =========================================
-                # FILTERS
-                # =========================================
+                # ================= FILTERS =================
 
                 if liquidity < MIN_LIQUIDITY:
                     continue
@@ -292,9 +277,7 @@ def get_new_pairs_on_base():
                 if ratio > MAX_VOL_LIQ_RATIO:
                     continue
 
-                # =========================================
-                # DUPLICATE CHECK
-                # =========================================
+                # ============================================
 
                 if contract in seen_tokens:
                     continue
@@ -303,19 +286,11 @@ def get_new_pairs_on_base():
 
                 save_seen_tokens(seen_tokens)
 
-                # =========================================
-                # STATUS
-                # =========================================
-
                 status = (
                     "🚀 NEW STRONG TOKEN"
                     if age_min <= 90
                     else "🔥 HIGH VOLUME TOKEN"
                 )
-
-                # =========================================
-                # TELEGRAM MESSAGE
-                # =========================================
 
                 message = f"""
 <b>{status}</b>
@@ -358,18 +333,13 @@ Trade with Based Bot
 
                 continue
 
-        # =============================================
-        # UPDATE TOP TOKENS
-        # =============================================
-
         current_top = sorted(
             current_top,
             key=lambda x: x["vol"],
             reverse=True
         )[:10]
 
-        with top_lock:
-            top_tokens_24h = current_top
+        top_tokens_24h = current_top
 
     except Exception as e:
 
@@ -379,101 +349,84 @@ Trade with Based Bot
 # TELEGRAM COMMANDS
 # =========================================================
 
-def check_telegram_commands():
+def check_telegram_commands_once():
 
-    offset = 0
+    global telegram_offset
 
-    while True:
+    try:
 
-        try:
+        url = (
+            f"https://api.telegram.org/"
+            f"bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+        )
 
-            url = (
-                f"https://api.telegram.org/"
-                f"bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+        params = {
+            "offset": telegram_offset,
+            "timeout": 1
+        }
+
+        response = session.get(
+            url,
+            params=params,
+            timeout=10
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        updates = data.get("result", [])
+
+        for update in updates:
+
+            telegram_offset = update["update_id"] + 1
+
+            if "message" not in update:
+                continue
+
+            message = update["message"]
+
+            chat_id = message["chat"]["id"]
+
+            text = (
+                message.get("text", "")
+                .strip()
+                .lower()
             )
 
-            params = {
-                "offset": offset,
-                "timeout": 30
-            }
+            if text in [
+                "/top",
+                "/best",
+                "top",
+                "best"
+            ]:
 
-            response = session.get(
-                url,
-                params=params,
-                timeout=35
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-            updates = data.get("result", [])
-
-            for update in updates:
-
-                offset = update["update_id"] + 1
-
-                if "message" not in update:
-                    continue
-
-                message = update["message"]
-
-                chat_id = message["chat"]["id"]
-
-                text = (
-                    message.get("text", "")
-                    .strip()
-                    .lower()
-                )
-
-                if text in [
-                    "/top",
-                    "/best",
-                    "top",
-                    "best"
-                ]:
-
-                    with top_lock:
-                        current_top = top_tokens_24h.copy()
-
-                    if not current_top:
-
-                        send_telegram_message(
-                            chat_id,
-                            "⏳ هنوز دیتا جمع نشده..."
-                        )
-
-                        continue
-
-                    msg = (
-                        "<b>🏆 Top Base Tokens</b>\n\n"
-                    )
-
-                    for i, token in enumerate(current_top[:8], 1):
-
-                        msg += (
-                            f"{i}. <b>{token['name']}</b>\n"
-                            f"📊 Vol: ${token['vol']:,.0f}\n"
-                            f"💧 Liq: ${token['liq']:,.0f}\n"
-                            f"⏱️ Age: {token['age']} min\n"
-                            f"🔗 <a href='{token['link']}'>Chart</a>\n\n"
-                        )
-
-                    msg += (
-                        f"💸 <a href='{BASED_TELEGRAM}'>"
-                        f"Trade with Based Bot</a>"
-                    )
+                if not top_tokens_24h:
 
                     send_telegram_message(
                         chat_id,
-                        msg
+                        "⏳ هنوز دیتا جمع نشده..."
                     )
 
-        except Exception as e:
+                    continue
 
-            print(f"[TELEGRAM LOOP ERROR] {e}")
+                msg = "<b>🏆 Top Base Tokens</b>\n\n"
 
-            time.sleep(5)
+                for i, token in enumerate(top_tokens_24h[:8], 1):
+
+                    msg += (
+                        f"{i}. <b>{token['name']}</b>\n"
+                        f"📊 Vol: ${token['vol']:,.0f}\n"
+                        f"💧 Liq: ${token['liq']:,.0f}\n"
+                        f"⏱️ Age: {token['age']} min\n"
+                        f"🔗 <a href='{token['link']}'>Chart</a>\n\n"
+                    )
+
+                send_telegram_message(chat_id, msg)
+
+    except Exception as e:
+
+        print(f"[TG ERROR] {e}")
 
 # =========================================================
 # MAIN
@@ -489,21 +442,20 @@ if __name__ == "__main__":
     print(f"MAX VOL/LIQ RATIO: {MAX_VOL_LIQ_RATIO}")
     print(f"CHECK INTERVAL: {CHECK_INTERVAL}s\n")
 
-    telegram_thread = threading.Thread(
-        target=check_telegram_commands,
-        daemon=True
-    )
-
-    telegram_thread.start()
-
     while True:
 
         try:
 
             get_new_pairs_on_base()
 
+            for _ in range(CHECK_INTERVAL):
+
+                check_telegram_commands_once()
+
+                time.sleep(1)
+
         except Exception as e:
 
             print(f"[MAIN LOOP ERROR] {e}")
 
-        time.sleep(CHECK_INTERVAL)
+            time.sleep(5)
