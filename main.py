@@ -1,13 +1,16 @@
 import os
 from datetime import datetime
 
-print("=== RAILWAY VARIABLES DEBUG ===")
-vars_to_check = ['TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET']
+print("=== FULL ENVIRONMENT DEBUG ===")
+print("All Environment Variables:\n")
 
-for v in vars_to_check:
-    value = os.getenv(v)
-    status = "✅ Exists (length: " + str(len(value)) + ")" if value else "❌ MISSING"
-    print(f"{v}: {status}")
+# Print all variables that start with TWITTER
+for key, value in os.environ.items():
+    if 'TWITTER' in key:
+        length = len(value) if value else 0
+        print(f"{key}: {'✅ Exists (len: ' + str(length) + ')' if value else '❌ MISSING'}")
 
-print("==================================\n")
-print(f"Bot started at: {datetime.now()}")
+print("\n=== SUMMARY ===")
+print(f"Total TWITTER variables found: {sum(1 for k in os.environ if 'TWITTER' in k)}")
+print(f"Time: {datetime.now()}")
+print("================================")
