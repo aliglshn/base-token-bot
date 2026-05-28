@@ -21,7 +21,11 @@ def send_telegram_message(chat_id, text):
     if not TELEGRAM_BOT_TOKEN:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }
     try:
         requests.post(url, json=payload, timeout=10)
         return True
@@ -88,7 +92,6 @@ def get_new_pairs_on_base():
     except Exception as e:
         print(f"Scan Error: {e}")
 
-# ==================== دستور /top ====================
 def check_telegram_commands():
     offset = 0
     while True:
@@ -119,3 +122,12 @@ def check_telegram_commands():
                     send_telegram_message(chat_id, msg)
         except:
             time.sleep(5)
+
+if __name__ == "__main__":
+    print("🚀 Base Meme Radar Bot Started with /top Command")
+    
+    threading.Thread(target=check_telegram_commands, daemon=True).start()
+    
+    while True:
+        get_new_pairs_on_base()
+        time.sleep(CHECK_INTERVAL)
