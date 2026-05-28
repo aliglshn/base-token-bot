@@ -1,16 +1,30 @@
 import os
+import tweepy
 from datetime import datetime
 
-print("=== FULL ENVIRONMENT DEBUG ===")
-print("All Environment Variables:\n")
+print("=== Base Meme Radar Bot ===")
 
-# Print all variables that start with TWITTER
-for key, value in os.environ.items():
-    if 'TWITTER' in key:
-        length = len(value) if value else 0
-        print(f"{key}: {'✅ Exists (len: ' + str(length) + ')' if value else '❌ MISSING'}")
+# Twitter Client
+client = tweepy.Client(
+    consumer_key=os.getenv('TWITTER_API_KEY'),
+    consumer_secret=os.getenv('TWITTER_API_SECRET'),
+    access_token=os.getenv('TWITTER_ACCESS_TOKEN'),
+    access_token_secret=os.getenv('TWITTER_ACCESS_SECRET')
+)
 
-print("\n=== SUMMARY ===")
-print(f"Total TWITTER variables found: {sum(1 for k in os.environ if 'TWITTER' in k)}")
-print(f"Time: {datetime.now()}")
-print("================================")
+print("✅ Twitter Connected!")
+
+# تست توییت
+test_tweet = f"""🧪 Test Tweet from Base Meme Radar Bot
+
+Bot is alive and connected successfully!
+Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Ready to detect new memes on Base! 🚀"""
+
+try:
+    response = client.create_tweet(text=test_tweet)
+    print(f"✅ Test Tweet Posted Successfully!")
+    print(f"Tweet ID: {response.data['id']}")
+except Exception as e:
+    print(f"❌ Error posting tweet: {e}")
