@@ -1,17 +1,18 @@
 import requests
 import time
+import os
 from datetime import datetime
 
-# ====================== CONFIG ======================
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')   # بعداً تو Railway اضافه می‌کنیم
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')       # Chat ID خودت
+# ====================== TELEGRAM CONFIG ======================
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+# ===========================================================
 
 CHECK_INTERVAL = 90
-# ===================================================
 
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("📝 [LOG] Telegram not configured:", text[:100])
+        print("📝 [LOG ONLY] Telegram not configured yet.")
         return False
     
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -23,7 +24,7 @@ def send_telegram_message(text):
     try:
         response = requests.post(url, json=payload, timeout=10)
         if response.status_code == 200:
-            print("✅ Telegram Alert Sent!")
+            print("✅ Telegram Alert Sent Successfully!")
             return True
         else:
             print(f"❌ Telegram Error: {response.text}")
@@ -67,9 +68,7 @@ def get_new_pairs_on_base():
             
             print(f"\n🚀 NEW MEME DETECTED!")
             print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
-            print(f"   🔗 {link}")
             
-            # ارسال به تلگرام
             message = f"""🚀 <b>New Meme on Base!</b>
 
 🪙 <b>{name}</b> (${symbol})
@@ -80,7 +79,7 @@ def get_new_pairs_on_base():
 🔗 {link}
 
 #Base #Memecoin"""
-            
+
             send_telegram_message(message)
             print("-" * 70)
         
@@ -92,6 +91,10 @@ def get_new_pairs_on_base():
 
 if __name__ == "__main__":
     print("🚀 Base Meme Radar Bot Started with Telegram Alerts")
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        print("✅ Telegram Configured")
+    else:
+        print("⚠️ Telegram not configured - Add variables in Railway")
     
     while True:
         get_new_pairs_on_base()
