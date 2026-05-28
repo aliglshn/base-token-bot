@@ -51,6 +51,55 @@ def get_new_pairs_on_base():
             created_str = attributes.get('pool_created_at')
             
             if not created_str:
-                continue
-                
-            # تبدیل
+                age_min = 9999
+            else:
+                try:
+                    # درست کردن فرمت زمان
+                    created_str = created_str.replace('Z', '+00:00')
+                    created_time = datetime.fromisoformat(created_str)
+                    age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
+                except:
+                    age_min = 9999
+            
+            token_info = {
+                'name': name,
+                'symbol': symbol,
+                'contract': contract,
+                'vol': vol,
+                'liq': liq,
+                'age': age_min,
+                'link': f"https://www.geckoterminal.com/base/pools/{contract}"
+            }
+            
+            current_top.append(token_info)
+            
+            # آلرت
+            if (age_min <= 90 and liq >= 3000) or vol >= 50000:
+                if contract not in seen_tokens:
+                    seen_tokens.add(contract)
+                    status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
+                    msg = f"""<b>{status} on Base!</b>
+
+🪙 {name}
+📍 <code>{contract}</code>
+📊 Vol 24h: ${vol:,.0f} | Liq: ${liq:,.0f}
+⏱️ {age_min} min
+
+🔗 <a href="{token_info['link']}">GeckoTerminal</a>
+
+💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
+                    send_telegram_message(TELEGRAM_CHAT_ID, msg)
+        
+        top_tokens_24h = sorted(current_top, key=lambda x: x['vol'], reverse=True)[:10]
+        
+    except Exception as e:
+        print(f"Error: {e}")
+
+# ==================== /top Command ====================
+def check_telegram_commands():
+    offset = 0
+    while True:
+        try:
+            url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates?offset={offset}&timeout=10"
+            resp = requests.get(url, timeout=15)
+            updates =
