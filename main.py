@@ -41,7 +41,7 @@ def get_new_pairs_on_base():
         
         current_top = []
         
-        for pool in pools[:200]:
+        for pool in pools[:250]:
             attributes = pool.get('attributes', {})
             name = attributes.get('name', 'Unknown')
             symbol = name.split('/')[0] if '/' in name else '???'
@@ -49,14 +49,13 @@ def get_new_pairs_on_base():
             vol = float(attributes.get('volume_usd', {}).get('h24', 0) or 0)
             liq = float(attributes.get('reserve_in_usd', 0) or 0)
             
-            # محاسبه امن سن
+            # محاسبه سن
             created_str = attributes.get('pool_created_at')
             if created_str:
                 try:
-                    # حذف Z و تبدیل به datetime
                     created_str = created_str.replace('Z', '')
                     if '.' in created_str:
-                        created_str = created_str.split('.')[0]  # حذف میلی‌ثانیه
+                        created_str = created_str.split('.')[0]
                     created_time = datetime.fromisoformat(created_str)
                     age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
                 except:
@@ -76,8 +75,8 @@ def get_new_pairs_on_base():
             
             current_top.append(token_info)
             
-            # آلرت
-            if (age_min <= 90 and liq >= 3000) or vol >= 50000:
+            # فیلتر بهبود یافته (توکن‌هایی مثل مثال شما رو بگیره)
+            if (age_min <= 120 and liq >= 2000) or vol >= 30000:   # ولوم تشخیص پایین‌تر
                 if contract not in seen_tokens:
                     seen_tokens.add(contract)
                     status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
@@ -98,7 +97,7 @@ def get_new_pairs_on_base():
     except Exception as e:
         print(f"Error: {e}")
 
-# ==================== /top Command ====================
+# /top Command
 def check_telegram_commands():
     offset = 0
     while True:
@@ -129,7 +128,7 @@ def check_telegram_commands():
             time.sleep(5)
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - GeckoTerminal + /top")
+    print("🚀 Base Meme Radar Bot - Improved Volume Detection")
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
     
