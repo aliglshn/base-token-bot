@@ -11,7 +11,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 BASED_X = "https://x.com/basedbot"
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 
-CHECK_INTERVAL = 60
+CHECK_INTERVAL = 45   # سریع‌تر
 # ===================================================
 
 seen_tokens = set()
@@ -30,29 +30,32 @@ def send_telegram_message(chat_id, text):
 
 def get_new_pairs_on_base():
     global top_tokens_24h
-    url = "https://api.dexscreener.com/latest/dex/search?q=base"
+    # استفاده از GeckoTerminal API (بهتر از DexScreener)
+    url = "https://api.geckoterminal.com/api/v2/networks/base/new_pools"
     
     try:
         response = requests.get(url, timeout=15)
         data = response.json()
-        pairs = data.get('pairs', [])
+        pools = data.get('data', [])
+        
+        print(f"\n[{datetime.now()}] 🔍 GeckoTerminal Scanner Running...")
         
         current_top = []
+        found_new = False
         
-        for pair in pairs[:400]:
-            base_token = pair.get('baseToken', {})
-            name = base_token.get('name', 'Unknown')
-            symbol = base_token.get('symbol', '???')
-            contract = base_token.get('address', 'N/A')
-            vol = pair.get('volume', {}).get('h24', 0)
-            liq = pair.get('liquidity', {}).get('usd', 0)
-            created = pair.get('pairCreatedAt')
-            pair_address = pair.get('pairAddress')
+        for pool in pools[:150]:
+            attributes = pool.get('attributes', {})
+            name = attributes.get('name', 'Unknown')
+            symbol = name.split('/')[0] if '/' in name else '???'
+            contract = attributes.get('address', 'N/A')  # pool address
+            vol = attributes.get('volume_usd', {}).get('h24', 0)
+            liq = attributes.get('reserve_in_usd', 0)
+            age_ms = attributes.get('pool_created_at')
             
-            if not pair_address or vol < 3000:
+            if not age_ms:
                 continue
                 
-            age_min = int((time.time() * 1000 - created) / 60000) if created else 9999
+            age_min = int((time.time() * 1000 - age_ms) / 60000)
             
             token_info = {
                 'name': name,
@@ -61,25 +64,38 @@ def get_new_pairs_on_base():
                 'vol': vol,
                 'liq': liq,
                 'age': age_min,
-                'link': f"https://dexscreener.com/base/{pair_address}"
+                'link': f"https://www.geckoterminal.com/base/pools/{contract}"
             }
             
             current_top.append(token_info)
             
-            # آلرت معمولی
-            if (age_min <= 90 and liq >= 4000) or vol >= 60000:
-                if pair_address not in seen_tokens:
-                    seen_tokens.add(pair_address)
-                    status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
-                    msg = f"<b>{status} on Base!</b>\n\n🪙 {name} (${symbol})\n📍 <code>{contract}</code>\n📊 Vol: ${vol:,} | Liq: ${liq:,}\n⏱️ {age_min} min\n\n🔗 <a href='{token_info['link']}'>DexScreener</a>\n\n💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
+            # آلرت
+            if (age_min <= 60 and liq >= 3000) or vol >= 40000:
+                if contract not in seen_tokens:
+                    seen_tokens.add(contract)
+                    status = "🚀 NEW" if age_min <= 60 else "🔥 HIGH VOL"
+                    msg = f"""<b>{status} on Base!</b>
+
+🪙 {name}
+📍 <code>{contract}</code>
+📊 Vol 24h: ${vol:,} | Liq: ${liq:,}
+⏱️ {age_min} min
+
+🔗 <a href="{token_info['link']}">GeckoTerminal</a>
+
+💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
                     send_telegram_message(TELEGRAM_CHAT_ID, msg)
+                    found_new = True
         
-        # ذخیره ۱۰ توکن برتر
         top_tokens_24h = sorted(current_top, key=lambda x: x['vol'], reverse=True)[:10]
         
+        if not found_new:
+            print("⏳ No good tokens right now...")
+            
     except Exception as e:
-        print(f"Scan Error: {e}")
+        print(f"Error: {e}")
 
+# ==================== /top Command ====================
 def check_telegram_commands():
     offset = 0
     while True:
@@ -98,23 +114,19 @@ def check_telegram_commands():
                 
                 if text in ['/top', '/best', 'top', 'best']:
                     if not top_tokens_24h:
-                        send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده. کمی صبر کنید...")
+                        send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده...")
                         continue
                     
-                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته (بر اساس Volume)</b>\n\n"
-                    for i, t in enumerate(top_tokens_24h, 1):
-                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n"
-                        msg += f"   Vol: ${t['vol']:,} | Liq: ${t['liq']:,} | Age: {t['age']} min\n"
-                        msg += f"   <a href='{t['link']}'>DexScreener</a>\n\n"
-                    
-                    msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت (GeckoTerminal)</b>\n\n"
+                    for i, t in enumerate(top_tokens_24h[:8], 1):
+                        msg += f"{i}. <b>{t['name']}</b>\n   Vol: ${t['vol']:,} | Liq: ${t['liq']:,}\n   <a href='{t['link']}'>Link</a>\n\n"
+                    msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade Now</a>"
                     send_telegram_message(chat_id, msg)
-                    
-        except Exception as e:
+        except:
             time.sleep(5)
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot Started with /top Command")
+    print("🚀 Base Meme Radar Bot - GeckoTerminal + /top Command")
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
     
