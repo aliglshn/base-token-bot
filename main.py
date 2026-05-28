@@ -29,7 +29,7 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Strong Filter Scan - Looking for high quality memes...")
+        print(f"\n[{datetime.now()}] 🔍 Medium Filter Scan - Looking for potential memes...")
         
         pairs = data.get('pairs', [])
         found = False
@@ -43,58 +43,54 @@ def get_new_pairs_on_base():
             liq = pair.get('liquidity', {}).get('usd', 0)
             created = pair.get('pairCreatedAt')
             address = pair.get('pairAddress')
-            txns = pair.get('txns', {})
             
             if not created or not address:
                 continue
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            # ==================== STRONG FILTER ====================
-            if age_min > 45:                    # حداکثر ۴۵ دقیقه
+            # ==================== MEDIUM FILTER ====================
+            if age_min > 60:                    # حداکثر ۶۰ دقیقه
                 continue
-            if liq < 15000:                     # حداقل لیکوییدیتی
+            if liq < 8000:                      # حداقل لیکوییدیتی
                 continue
-            if vol < 5000:                      # حداقل ولوم
-                continue
-            if txns.get('h1', {}).get('buys', 0) + txns.get('h1', {}).get('sells', 0) < 20:
+            if vol < 2000:                      # حداقل ولوم
                 continue
             # ====================================================
             
             found = True
             link = f"https://dexscreener.com/base/{address}"
             
-            print(f"\n🚀 HIGH QUALITY MEME DETECTED!")
-            print(f"   🪙 {name} (${symbol})")
-            print(f"   💰 Price: ${price} | Age: {age_min} min")
-            print(f"   📊 Liq: ${liq:,} | 24h Vol: ${vol:,}")
+            print(f"\n🚀 POTENTIAL MEME DETECTED!")
+            print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
+            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol:,}")
             print(f"   🔗 {link}")
             
             # ارسال به تلگرام
-            message = f"""🚀 <b>HIGH QUALITY MEME FOUND!</b>
+            message = f"""🚀 <b>Potential Meme on Base!</b>
 
 🪙 <b>{name}</b> (${symbol})
 💰 Price: ${price}
 📊 Liquidity: ${liq:,}
 📈 24h Volume: ${vol:,}
-⏱️ Only {age_min} minutes old!
+⏱️ {age_min} minutes old
 
 🔗 <a href="{link}">DexScreener</a>
 
-#Base #Memecoin #NewLaunch"""
+#Base #Memecoin"""
             
             send_telegram_message(message)
             print("-" * 80)
         
         if not found:
-            print("⏳ No high-quality memes passed the strong filter right now.")
+            print("⏳ No potential memes passed the filter right now.")
             
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - STRONG FILTER Mode")
-    print("Only high quality launches (Liq >15k + Vol >5k + Age <45min)")
+    print("🚀 Base Meme Radar Bot - MEDIUM FILTER Mode")
+    print("Age < 60min | Liq > 8k | Vol > 2k")
     
     while True:
         get_new_pairs_on_base()
