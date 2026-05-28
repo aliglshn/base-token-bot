@@ -14,6 +14,20 @@ BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 CHECK_INTERVAL = 60
 seen_tokens = set()
 
+def is_honeypot(contract_address):
+    """چک کردن honeypot با RugCheck API"""
+    try:
+        url = f"https://api.rugcheck.xyz/v1/tokens/{contract_address}/report"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            score = data.get('score', 0)
+            is_honeypot_risk = data.get('isHoneypot', False) or score < 50
+            return is_honeypot_risk, score
+        return True, 0  # اگر خطا داد، احتیاطاً honeypot فرض کن
+    except:
+        return True, 0
+
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return False
@@ -33,12 +47,12 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Smart Scanner Running...")
+        print(f"\n[{datetime.now()}] 🔍 Smart Scanner + Honeypot Check Running...")
         
         pairs = data.get('pairs', [])
         found_new = False
         
-        for pair in pairs[:250]:
+        for pair in pairs[:200]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
@@ -49,7 +63,7 @@ def get_new_pairs_on_base():
             created = pair.get('pairCreatedAt')
             pair_address = pair.get('pairAddress')
             
-            if not created or not pair_address:
+            if not created or not pair_address or not contract_address:
                 continue
                 
             token_key = pair_address
@@ -58,56 +72,14 @@ def get_new_pairs_on_base():
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            # فیلتر بهبود یافته
             is_new = age_min <= 90 and liq >= 3000
-            is_high_volume = vol_24h >= 50000 and age_min <= 300   # حجم خوب + حداکثر ۵ ساعت
+            is_high_volume = vol_24h >= 50000 and age_min <= 300
             
             if not (is_new or is_high_volume):
                 continue
             
-            seen_tokens.add(token_key)
-            found_new = True
-            dexscreener_link = f"https://dexscreener.com/base/{pair_address}"
-            
-            if is_new:
-                status = "🚀 NEW LAUNCH"
-            else:
-                status = "🔥 HIGH VOLUME"
-            
-            print(f"\n{status} DETECTED!")
-            print(f"   🪙 {name} (${symbol})")
-            print(f"   📍 Contract: {contract_address}")
-            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
-            print(f"   🔗 {dexscreener_link}")
-            
-            message = f"""<b>{status} on Base!</b>
-
-🪙 <b>{name}</b> (${symbol})
-📍 <code>{contract_address}</code>
-💰 Price: ${price}
-📊 Liq: ${liq:,} | 24h Vol: ${vol_24h:,}
-⏱️ {age_min} minutes old
-
-🔗 <a href="{dexscreener_link}">DexScreener</a>
-
-<b>💸 Trade Now with Based Bot:</b>
-• <a href="{BASED_TELEGRAM}">Telegram Bot</a>
-• <a href="{BASED_X}">X (@basedbot)</a>
-
-#Base #Memecoin"""
-
-            send_telegram_message(message)
-            print("-" * 80)
-        
-        if not found_new:
-            print("⏳ No new or high-volume tokens right now...")
-            
-    except Exception as e:
-        print(f"Error: {e}")
-
-if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - SMART MODE (Improved Volume Detection)")
-    
-    while True:
-        get_new_pairs_on_base()
-        time.sleep(CHECK_INTERVAL)
+            # ==================== Honeypot Check ====================
+            print(f"   Checking Honeypot for {symbol}...")
+            honeypot_risk, score = is_honeypot(contract_address)
+            if honeypot_risk:
+                print(f"   ❌ Honeypot Risk Detected
