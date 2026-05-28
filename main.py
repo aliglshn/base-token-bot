@@ -1,4 +1,3 @@
-```python id="z4yn7m"
 import requests
 import time
 import os
@@ -21,10 +20,10 @@ CHECK_INTERVAL = 45
 
 # ================= FILTERS =================
 
-MIN_VOLUME = 100000          # حداقل ولوم
-MIN_LIQUIDITY = 25000        # حداقل لیکوییدیتی
-MIN_AGE_MINUTES = 5          # حداقل سن توکن
-MAX_VOL_LIQ_RATIO = 15       # جلوگیری از فیک ولوم
+MIN_VOLUME = 100000
+MIN_LIQUIDITY = 25000
+MIN_AGE_MINUTES = 5
+MAX_VOL_LIQ_RATIO = 15
 
 # ===========================================
 
@@ -72,14 +71,12 @@ def load_seen_tokens():
         return set()
 
     try:
-
         with open(SEEN_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         return set(data)
 
     except Exception as e:
-
         print(f"[LOAD ERROR] {e}")
         return set()
 
@@ -87,12 +84,10 @@ def load_seen_tokens():
 def save_seen_tokens(tokens):
 
     try:
-
         with open(SEEN_FILE, "w", encoding="utf-8") as f:
             json.dump(list(tokens), f)
 
     except Exception as e:
-
         print(f"[SAVE ERROR] {e}")
 
 
@@ -107,7 +102,7 @@ def safe_float(value, default=0):
     try:
         return float(value)
 
-    except:
+    except Exception:
         return default
 
 
@@ -170,9 +165,7 @@ def send_telegram_message(chat_id, text):
         result = response.json()
 
         if not result.get("ok"):
-
             print("[TELEGRAM ERROR]", result)
-
             return False
 
         return True
@@ -244,13 +237,16 @@ def get_new_pairs_on_base():
                 )
 
                 # =========================================
-                # BASIC VALIDATION
+                # VALIDATION
                 # =========================================
 
                 if contract == "N/A":
                     continue
 
                 if liquidity <= 0:
+                    continue
+
+                if volume <= 0:
                     continue
 
                 # =========================================
@@ -271,10 +267,6 @@ def get_new_pairs_on_base():
 
                 current_top.append(token_info)
 
-                # =========================================
-                # DEBUG LOG
-                # =========================================
-
                 print(
                     f"{name[:28]:28} | "
                     f"VOL ${volume:,.0f} | "
@@ -283,22 +275,18 @@ def get_new_pairs_on_base():
                 )
 
                 # =========================================
-                # STRONG FILTERS
+                # FILTERS
                 # =========================================
 
-                # حداقل لیکوییدیتی
                 if liquidity < MIN_LIQUIDITY:
                     continue
 
-                # حداقل ولوم
                 if volume < MIN_VOLUME:
                     continue
 
-                # حداقل سن
                 if age_min < MIN_AGE_MINUTES:
                     continue
 
-                # جلوگیری از فیک ولوم
                 ratio = volume / liquidity
 
                 if ratio > MAX_VOL_LIQ_RATIO:
@@ -344,9 +332,7 @@ def get_new_pairs_on_base():
 
 ⏱️ Age: {age_min} min
 
-🔗 <a href="{token_info['link']}">
-GeckoTerminal
-</a>
+🔗 <a href="{token_info['link']}">GeckoTerminal</a>
 
 💸 <a href="{BASED_TELEGRAM}">
 Trade with Based Bot
@@ -383,7 +369,6 @@ Trade with Based Bot
         )[:10]
 
         with top_lock:
-
             top_tokens_24h = current_top
 
     except Exception as e:
@@ -441,10 +426,6 @@ def check_telegram_commands():
                     .lower()
                 )
 
-                # =====================================
-                # /TOP
-                # =====================================
-
                 if text in [
                     "/top",
                     "/best",
@@ -475,16 +456,12 @@ def check_telegram_commands():
                             f"📊 Vol: ${token['vol']:,.0f}\n"
                             f"💧 Liq: ${token['liq']:,.0f}\n"
                             f"⏱️ Age: {token['age']} min\n"
-                            f"🔗 "
-                            f"<a href='{token['link']}'>"
-                            f"Chart"
-                            f"</a>\n\n"
+                            f"🔗 <a href='{token['link']}'>Chart</a>\n\n"
                         )
 
                     msg += (
                         f"💸 <a href='{BASED_TELEGRAM}'>"
-                        f"Trade with Based Bot"
-                        f"</a>"
+                        f"Trade with Based Bot</a>"
                     )
 
                     send_telegram_message(
@@ -504,29 +481,13 @@ def check_telegram_commands():
 
 if __name__ == "__main__":
 
-    print(
-        "\n🚀 BASE MEME RADAR STARTED\n"
-    )
+    print("\n🚀 BASE MEME RADAR STARTED\n")
 
-    print(
-        f"MIN VOLUME: ${MIN_VOLUME:,}"
-    )
-
-    print(
-        f"MIN LIQUIDITY: ${MIN_LIQUIDITY:,}"
-    )
-
-    print(
-        f"MIN AGE: {MIN_AGE_MINUTES} min"
-    )
-
-    print(
-        f"MAX VOL/LIQ RATIO: {MAX_VOL_LIQ_RATIO}"
-    )
-
-    print(
-        f"CHECK INTERVAL: {CHECK_INTERVAL}s\n"
-    )
+    print(f"MIN VOLUME: ${MIN_VOLUME:,}")
+    print(f"MIN LIQUIDITY: ${MIN_LIQUIDITY:,}")
+    print(f"MIN AGE: {MIN_AGE_MINUTES} min")
+    print(f"MAX VOL/LIQ RATIO: {MAX_VOL_LIQ_RATIO}")
+    print(f"CHECK INTERVAL: {CHECK_INTERVAL}s\n")
 
     telegram_thread = threading.Thread(
         target=check_telegram_commands,
@@ -546,4 +507,3 @@ if __name__ == "__main__":
             print(f"[MAIN LOOP ERROR] {e}")
 
         time.sleep(CHECK_INTERVAL)
-```
