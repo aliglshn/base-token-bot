@@ -37,7 +37,7 @@ def get_new_pairs_on_base():
         data = response.json()
         pools = data.get('data', [])
         
-        print(f"\n[{datetime.now()}] 🔍 GeckoTerminal Scanner Running...")
+        print(f"\n[{datetime.now()}] 🔍 High Volume Scanner Running... (Min 50k Volume)")
         
         current_top = []
         
@@ -51,6 +51,7 @@ def get_new_pairs_on_base():
             
             # محاسبه سن
             created_str = attributes.get('pool_created_at')
+            age_min = 9999
             if created_str:
                 try:
                     created_str = created_str.replace('Z', '')
@@ -59,9 +60,7 @@ def get_new_pairs_on_base():
                     created_time = datetime.fromisoformat(created_str)
                     age_min = int((datetime.utcnow() - created_time).total_seconds() / 60)
                 except:
-                    age_min = 9999
-            else:
-                age_min = 9999
+                    pass
             
             token_info = {
                 'name': name,
@@ -75,11 +74,14 @@ def get_new_pairs_on_base():
             
             current_top.append(token_info)
             
-            # فیلتر بهبود یافته (توکن‌هایی مثل مثال شما رو بگیره)
-            if (age_min <= 120 and liq >= 2000) or vol >= 30000:   # ولوم تشخیص پایین‌تر
+            # فقط توکن‌هایی که ولوم بالای ۵۰ هزار دلار دارن
+            if vol >= 50000:
                 if contract not in seen_tokens:
                     seen_tokens.add(contract)
-                    status = "🚀 NEW" if age_min <= 90 else "🔥 HIGH VOL"
+                    status = "🔥 HIGH VOLUME"
+                    if age_min <= 60:
+                        status = "🚀 NEW + HIGH VOL"
+                    
                     msg = f"""<b>{status} on Base!</b>
 
 🪙 {name}
@@ -119,7 +121,7 @@ def check_telegram_commands():
                         send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده...")
                         continue
                     
-                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته</b>\n\n"
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته (بالای ۵۰k Volume)</b>\n\n"
                     for i, t in enumerate(top_tokens_24h[:8], 1):
                         msg += f"{i}. <b>{t['name']}</b>\n   Vol: ${t['vol']:,.0f} | Liq: ${t['liq']:,.0f} | Age: {t['age']} min\n   <a href='{t['link']}'>Link</a>\n\n"
                     msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
@@ -128,7 +130,7 @@ def check_telegram_commands():
             time.sleep(5)
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - Improved Volume Detection")
+    print("🚀 Base Meme Radar Bot - High Volume Mode (Min 50k)")
     
     threading.Thread(target=check_telegram_commands, daemon=True).start()
     
