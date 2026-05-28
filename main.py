@@ -12,25 +12,14 @@ CHECK_INTERVAL = 90
 
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("📝 [LOG ONLY] Telegram not configured yet.")
         return False
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML"
-    }
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
     try:
-        response = requests.post(url, json=payload, timeout=10)
-        if response.status_code == 200:
-            print("✅ Telegram Alert Sent Successfully!")
-            return True
-        else:
-            print(f"❌ Telegram Error: {response.text}")
-            return False
-    except Exception as e:
-        print(f"❌ Telegram Failed: {e}")
+        requests.post(url, json=payload, timeout=10)
+        print("✅ Telegram Alert Sent!")
+        return True
+    except:
         return False
 
 def get_new_pairs_on_base():
@@ -40,12 +29,12 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Scanning for new memes on Base...")
+        print(f"\n[{datetime.now()}] 🔍 Strong Filter Scan - Looking for high quality memes...")
         
         pairs = data.get('pairs', [])
         found = False
         
-        for pair in pairs[:100]:
+        for pair in pairs[:120]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
@@ -54,47 +43,58 @@ def get_new_pairs_on_base():
             liq = pair.get('liquidity', {}).get('usd', 0)
             created = pair.get('pairCreatedAt')
             address = pair.get('pairAddress')
+            txns = pair.get('txns', {})
             
             if not created or not address:
                 continue
                 
             age_min = int((time.time() * 1000 - created) / 60000)
             
-            if age_min > 90 or liq < 6000 or vol < 600:
+            # ==================== STRONG FILTER ====================
+            if age_min > 45:                    # حداکثر ۴۵ دقیقه
                 continue
-                
+            if liq < 15000:                     # حداقل لیکوییدیتی
+                continue
+            if vol < 5000:                      # حداقل ولوم
+                continue
+            if txns.get('h1', {}).get('buys', 0) + txns.get('h1', {}).get('sells', 0) < 20:
+                continue
+            # ====================================================
+            
             found = True
             link = f"https://dexscreener.com/base/{address}"
             
-            print(f"\n🚀 NEW MEME DETECTED!")
-            print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
+            print(f"\n🚀 HIGH QUALITY MEME DETECTED!")
+            print(f"   🪙 {name} (${symbol})")
+            print(f"   💰 Price: ${price} | Age: {age_min} min")
+            print(f"   📊 Liq: ${liq:,} | 24h Vol: ${vol:,}")
+            print(f"   🔗 {link}")
             
-            message = f"""🚀 <b>New Meme on Base!</b>
+            # ارسال به تلگرام
+            message = f"""🚀 <b>HIGH QUALITY MEME FOUND!</b>
 
 🪙 <b>{name}</b> (${symbol})
 💰 Price: ${price}
-📊 Liq: ${liq:,} | Vol: ${vol:,}
-⏱️ {age_min} minutes old
+📊 Liquidity: ${liq:,}
+📈 24h Volume: ${vol:,}
+⏱️ Only {age_min} minutes old!
 
-🔗 {link}
+🔗 <a href="{link}">DexScreener</a>
 
-#Base #Memecoin"""
-
+#Base #Memecoin #NewLaunch"""
+            
             send_telegram_message(message)
-            print("-" * 70)
+            print("-" * 80)
         
         if not found:
-            print("⏳ No new interesting memes right now.")
+            print("⏳ No high-quality memes passed the strong filter right now.")
             
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot Started with Telegram Alerts")
-    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
-        print("✅ Telegram Configured")
-    else:
-        print("⚠️ Telegram not configured - Add variables in Railway")
+    print("🚀 Base Meme Radar Bot - STRONG FILTER Mode")
+    print("Only high quality launches (Liq >15k + Vol >5k + Age <45min)")
     
     while True:
         get_new_pairs_on_base()
