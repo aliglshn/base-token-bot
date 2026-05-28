@@ -1,12 +1,13 @@
 import os
 from datetime import datetime
 
-print("=== ENVIRONMENT VARIABLES CHECK ===")
-print("TWITTER_API_KEY:", "✅ Exists" if os.getenv('TWITTER_API_KEY') else "❌ MISSING")
-print("TWITTER_API_SECRET:", "✅ Exists" if os.getenv('TWITTER_API_SECRET') else "❌ MISSING")
-print("TWITTER_ACCESS_TOKEN:", "✅ Exists" if os.getenv('TWITTER_ACCESS_TOKEN') else "❌ MISSING")
-print("TWITTER_ACCESS_SECRET:", "✅ Exists" if os.getenv('TWITTER_ACCESS_SECRET') else "❌ MISSING")
-print("==================================\n")
+print("=== RAILWAY VARIABLES DEBUG ===")
+vars_to_check = ['TWITTER_API_KEY', 'TWITTER_API_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_SECRET']
 
+for v in vars_to_check:
+    value = os.getenv(v)
+    status = "✅ Exists (length: " + str(len(value)) + ")" if value else "❌ MISSING"
+    print(f"{v}: {status}")
+
+print("==================================\n")
 print(f"Bot started at: {datetime.now()}")
-print("If all are ✅, Twitter should work.")
