@@ -21,11 +21,7 @@ def send_telegram_message(chat_id, text):
     if not TELEGRAM_BOT_TOKEN:
         return False
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": text,
-        "parse_mode": "HTML"
-    }
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
     try:
         requests.post(url, json=payload, timeout=10)
         return True
@@ -43,7 +39,7 @@ def get_new_pairs_on_base():
         
         current_top = []
         
-        for pair in pairs[:300]:
+        for pair in pairs[:400]:
             base_token = pair.get('baseToken', {})
             name = base_token.get('name', 'Unknown')
             symbol = base_token.get('symbol', '???')
@@ -53,7 +49,7 @@ def get_new_pairs_on_base():
             created = pair.get('pairCreatedAt')
             pair_address = pair.get('pairAddress')
             
-            if not pair_address or vol < 5000:
+            if not pair_address or vol < 3000:
                 continue
                 
             age_min = int((time.time() * 1000 - created) / 60000) if created else 9999
@@ -78,6 +74,7 @@ def get_new_pairs_on_base():
                     msg = f"<b>{status} on Base!</b>\n\n🪙 {name} (${symbol})\n📍 <code>{contract}</code>\n📊 Vol: ${vol:,} | Liq: ${liq:,}\n⏱️ {age_min} min\n\n🔗 <a href='{token_info['link']}'>DexScreener</a>\n\n💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
                     send_telegram_message(TELEGRAM_CHAT_ID, msg)
         
+        # ذخیره ۱۰ توکن برتر
         top_tokens_24h = sorted(current_top, key=lambda x: x['vol'], reverse=True)[:10]
         
     except Exception as e:
@@ -104,12 +101,16 @@ def check_telegram_commands():
                         send_telegram_message(chat_id, "⏳ هنوز اطلاعات کافی جمع نشده. کمی صبر کنید...")
                         continue
                     
-                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته</b>\n\n"
-                    for i, t in enumerate(top_tokens_24h[:8], 1):
-                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n   Vol: ${t['vol']:,} | Liq: ${t['liq']:,}\n   <a href='{t['link']}'>DexScreener</a>\n\n"
+                    msg = "<b>🏆 بهترین توکن‌های ۲۴ ساعت گذشته (بر اساس Volume)</b>\n\n"
+                    for i, t in enumerate(top_tokens_24h, 1):
+                        msg += f"{i}. <b>{t['name']}</b> (${t['symbol']})\n"
+                        msg += f"   Vol: ${t['vol']:,} | Liq: ${t['liq']:,} | Age: {t['age']} min\n"
+                        msg += f"   <a href='{t['link']}'>DexScreener</a>\n\n"
+                    
                     msg += f"💸 <a href='{BASED_TELEGRAM}'>Trade with Based Bot</a>"
                     send_telegram_message(chat_id, msg)
-        except:
+                    
+        except Exception as e:
             time.sleep(5)
 
 if __name__ == "__main__":
