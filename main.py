@@ -3,12 +3,14 @@ import time
 import os
 from datetime import datetime
 
-# ====================== TELEGRAM CONFIG ======================
+# ====================== CONFIG ======================
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-# ===========================================================
-
 CHECK_INTERVAL = 60
+# ===================================================
+
+# ذخیره توکن‌های دیده شده برای جلوگیری از تکرار
+seen_tokens = set()
 
 def send_telegram_message(text):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -29,10 +31,10 @@ def get_new_pairs_on_base():
         response = requests.get(url, timeout=15)
         data = response.json()
         
-        print(f"\n[{datetime.now()}] 🔍 Smart Scanner - New + High Volume Tokens...")
+        print(f"\n[{datetime.now()}] 🔍 Smart Scanner Running...")
         
         pairs = data.get('pairs', [])
-        found = False
+        found_new = False
         
         for pair in pairs[:200]:
             base_token = pair.get('baseToken', {})
@@ -47,17 +49,21 @@ def get_new_pairs_on_base():
             if not created or not address:
                 continue
                 
+            token_key = f"{address}"  # برای جلوگیری از تکرار
+            if token_key in seen_tokens:
+                continue
+                
             age_min = int((time.time() * 1000 - created) / 60000)
             
             # ==================== SMART FILTER ====================
-            is_new = age_min <= 60 and liq >= 3000
-            is_high_volume = vol_24h >= 50000   # توکن‌هایی که حجم خیلی خوبی می‌خورن
+            is_new = age_min <= 60 and liq >= 4000
+            is_high_volume = vol_24h >= 80000 and age_min <= 180  # حجم خیلی بالا + حداکثر ۳ ساعت
             
             if not (is_new or is_high_volume):
                 continue
-            # ====================================================
             
-            found = True
+            seen_tokens.add(token_key)
+            found_new = True
             link = f"https://dexscreener.com/base/{address}"
             
             if is_new:
@@ -67,15 +73,14 @@ def get_new_pairs_on_base():
             
             print(f"\n{status} DETECTED!")
             print(f"   🪙 {name} (${symbol}) | Age: {age_min} min")
-            print(f"   💰 Price: ${price} | Liq: ${liq:,} | 24h Vol: ${vol_24h:,}")
+            print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
             print(f"   🔗 {link}")
             
             message = f"""<b>{status} on Base!</b>
 
 🪙 <b>{name}</b> (${symbol})
 💰 Price: ${price}
-📊 Liquidity: ${liq:,}
-📈 24h Volume: ${vol_24h:,}
+📊 Liq: ${liq:,} | 24h Vol: ${vol_24h:,}
 ⏱️ {age_min} minutes old
 
 🔗 <a href="{link}">DexScreener</a>
@@ -85,15 +90,15 @@ def get_new_pairs_on_base():
             send_telegram_message(message)
             print("-" * 80)
         
-        if not found:
+        if not found_new:
             print("⏳ No new or high-volume tokens right now...")
             
     except Exception as e:
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Base Meme Radar Bot - SMART MODE")
-    print("Detecting New Launches + High Volume Tokens")
+    print("🚀 Base Meme Radar Bot - SMART MODE v2 (Anti-Spam)")
+    print("New Launches + Real High Volume (No Repeat)")
     
     while True:
         get_new_pairs_on_base()
