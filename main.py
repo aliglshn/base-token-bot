@@ -7,7 +7,6 @@ from datetime import datetime
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-# لینک‌های ترید بات Based
 BASED_X = "https://x.com/basedbot"
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
 # ===================================================
@@ -81,4 +80,35 @@ def get_new_pairs_on_base():
             print(f"   💰 Price: ${price} | Liq: ${liq:,} | Vol: ${vol_24h:,}")
             print(f"   🔗 {dexscreener_link}")
             
-            message = f"""<b>{status}
+            # پیام تلگرام
+            message = f"""<b>{status} on Base!</b>
+
+🪙 <b>{name}</b> (${symbol})
+📍 <code>{contract_address}</code>
+💰 Price: ${price}
+📊 Liq: ${liq:,} | 24h Vol: ${vol_24h:,}
+⏱️ {age_min} minutes old
+
+🔗 <a href="{dexscreener_link}">DexScreener</a>
+
+<b>💸 Trade Now with Based Bot:</b>
+• <a href="{BASED_TELEGRAM}">Telegram Bot</a>
+• <a href="{BASED_X}">X (@basedbot)</a>
+
+#Base #Memecoin"""
+
+            send_telegram_message(message)
+            print("-" * 80)
+        
+        if not found_new:
+            print("⏳ No new or high-volume tokens right now...")
+            
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    print("🚀 Base Meme Radar Bot - SMART MODE + Contract + Based Bot Links")
+    
+    while True:
+        get_new_pairs_on_base()
+        time.sleep(CHECK_INTERVAL)
