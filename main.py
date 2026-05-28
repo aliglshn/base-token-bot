@@ -1,11 +1,15 @@
 import requests
 import time
+import os
 from datetime import datetime
+import threading
 
+# ====================== CONFIG ======================
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 BASED_TELEGRAM = "https://t.me/based_eth_bot?start=r_aliglshn1"
+# ===================================================
 
 seen_tokens = set()
 
@@ -62,7 +66,6 @@ def scan():
 💸 <a href="{BASED_TELEGRAM}">Trade with Based Bot</a>"""
 
             send_message(msg)
-            print(f"Sent alert for {name}")
             
     except Exception as e:
         print(f"Error: {e}")
